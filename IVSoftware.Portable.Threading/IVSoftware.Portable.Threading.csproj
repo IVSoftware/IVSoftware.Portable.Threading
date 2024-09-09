@@ -1,0 +1,32 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<Title>IVSoftware.Portable.Threading</Title>
+		<Description>Provides an awaitable hook for non-awaitable flows.</Description>
+		<PackageTags>portable;net;android;ios;mstest;unittest</PackageTags>
+		<!--RepositoryUrl></RepositoryUrl-->
+		<!--PackageProjectUrl></PackageProjectUrl-->
+		<RootNamespace>IVSoftware.Portable.Threading</RootNamespace>
+
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
+		<Authors>IVSoftware, Thomas C. Gregor</Authors>
+		<Owner>IVSoftware LLC</Owner>
+		<Copyright>Copyright © 2023 IVSoftware LLC</Copyright>
+		<FileVersion>$(AssemblyVersion)</FileVersion>
+		<Version>$(AssemblyVersion)</Version>
+		<PackageReadmeFile>README.md</PackageReadmeFile>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+		<SignAssembly>True</SignAssembly>
+		<!--AssemblyOriginatorKeyFile></AssemblyOriginatorKeyFile-->
+		<DebugType>embedded</DebugType>
+		<BaseVersion>1.0.0</BaseVersion>
+		<VersionPrefix>$(BaseVersion)</VersionPrefix>
+	</PropertyGroup>
+	<ItemGroup>
+		<None Include="..\README.md">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
+	</ItemGroup>
+</Project>
