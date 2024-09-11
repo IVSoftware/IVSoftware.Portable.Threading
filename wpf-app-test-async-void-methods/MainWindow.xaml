@@ -1,0 +1,51 @@
+﻿<Window x:Class="wpf_app_test_async_void_methods.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:wpf_app_test_async_void_methods"
+        xmlns:conv="clr-namespace:wpf_app_test_async_void_methods.Converters"
+        xmlns:wfi="clr-namespace:System.Windows.Forms.Integration;assembly=WindowsFormsIntegration"   
+        xmlns:wf="clr-namespace:System.Windows.Forms;assembly=System.Windows.Forms"     
+        mc:Ignorable="d"
+        Title="MainWindow" Height="300" Width="500">
+    <Window.Resources>
+        <conv:EnumToVisibilityConverter x:Key="EnumToVisibilityConverter"/>
+    </Window.Resources>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <wfi:WindowsFormsHost 
+            x:Name="RichTextBoxHost" >
+            <wf:RichTextBox 
+                Name="hostedRichTextBox"
+                Dock="Fill"
+                ReadOnly="True"
+                Multiline="True"
+                Margin="10,0,0,0"
+                ScrollBars="Both"/>
+        </wfi:WindowsFormsHost>
+        <StackPanel 
+            Grid.Row="1"
+            Orientation="Horizontal"
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            Margin="10">
+            <Button 
+                x:Name="buttonStartTest"
+                Content="StartTest" 
+                Width="100" 
+                Margin="5" 
+                Visibility="{Binding 
+                    RuntimeMode, 
+                    Converter={StaticResource EnumToVisibilityConverter}}"/>
+            <Button x:Name="buttonA" Content="A" Width="50" Margin="5"/>
+            <Button x:Name="buttonB" Content="B" Width="50" Margin="5"/>
+            <Button x:Name="buttonC" Content="C" Width="50" Margin="5"/>
+            <Button x:Name="buttonD" Content="D" Width="50" Margin="5"/>
+        </StackPanel>
+    </Grid>
+</Window>

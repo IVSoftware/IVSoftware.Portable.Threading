@@ -5,6 +5,10 @@ VisualStudioVersion = 17.11.35222.181
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "IVSoftware.Portable.Threading", "IVSoftware.Portable.Threading\IVSoftware.Portable.Threading.csproj", "{C3BF6672-12C7-436A-98D1-8D9BC9736E7F}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "wpf-app-test-async-void-methods", "wpf-app-test-async-void-methods\wpf-app-test-async-void-methods.csproj", "{0322A85B-3DA0-4C84-876E-E49DAE0CE475}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MSTest.Async.Demo", "MSTest.Async.Demo\MSTest.Async.Demo.csproj", "{730AAAE9-2F27-4EBF-AFC4-7FBFB5C5CECD}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -15,6 +19,14 @@ Global
 		{C3BF6672-12C7-436A-98D1-8D9BC9736E7F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C3BF6672-12C7-436A-98D1-8D9BC9736E7F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C3BF6672-12C7-436A-98D1-8D9BC9736E7F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0322A85B-3DA0-4C84-876E-E49DAE0CE475}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0322A85B-3DA0-4C84-876E-E49DAE0CE475}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0322A85B-3DA0-4C84-876E-E49DAE0CE475}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0322A85B-3DA0-4C84-876E-E49DAE0CE475}.Release|Any CPU.Build.0 = Release|Any CPU
+		{730AAAE9-2F27-4EBF-AFC4-7FBFB5C5CECD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{730AAAE9-2F27-4EBF-AFC4-7FBFB5C5CECD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{730AAAE9-2F27-4EBF-AFC4-7FBFB5C5CECD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{730AAAE9-2F27-4EBF-AFC4-7FBFB5C5CECD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

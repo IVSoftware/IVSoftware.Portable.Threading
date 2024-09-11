@@ -7,7 +7,7 @@ This is a tried and true approach that I've used extensively for testing my UI a
 One of the simplest examples I can think of would be the ability to await an expected property change from within the synchronous `System.Windows.Window.OnPropertyChanged()` method in the app under test. You can do this by adding one line to call the `OnAwaited` extension:
 
 #### App under test
-// <PackageReference Include="IVSoftware.Portable.Threading" Version="1.1.0" />
+// <PackageReference Include="IVSoftware.Portable.Threading" Version="*" />
 // using IVSoftware.Portable.Threading;
 ```
 // The synchronous method you want to observe but can't (or shouldn't) call directly. 
