@@ -54,9 +54,6 @@ namespace MSTest.Async.Demo
         [TestMethod]
         public async Task TestUserInteractions()
         {
-            PromptInUI(
-                $"{Environment.NewLine}Starting test: {MethodBase.GetCurrentMethod()?.Name}",
-                Color.Maroon);
             SemaphoreSlim awaiter = new SemaphoreSlim(0, 1);
             string? actual = null;
             try
@@ -166,10 +163,6 @@ namespace MSTest.Async.Demo
         [TestMethod]
         public async Task MyTest_ReturnsData()
         {
-            PromptInUI(
-                $"{Environment.NewLine}Starting test: {MethodBase.GetCurrentMethod()?.Name}",
-                Color.Maroon);
-
             SemaphoreSlim awaiter = new SemaphoreSlim(0, 1);
             string? actual = null;
             try
@@ -248,20 +241,17 @@ namespace MSTest.Async.Demo
         {
             if (WPFAppWindow != null)
             {
-                if (_cts.IsCancellationRequested)
+                WPFAppWindow.PromptInRichTextBox($"{Environment.NewLine}ALL TESTS HAVE RUN");
+                // Cosmetic wait
+                for (int i = 10; i >= 0; i--)
                 {
-                    return;
-                }
-                else
-                {
-                    WPFAppWindow.PromptInRichTextBox($"{Environment.NewLine}ALL TESTS HAVE RUN");
-                    // Cosmetic wait
-                    for (int i = 10; i >= 0; i--)
+                    if (_cts.IsCancellationRequested)
                     {
-                        WPFAppWindow.PromptInRichTextBox(
-                            $"Shutting down in {i}");
-                        await Task.Delay(TimeSpan.FromSeconds(1));
+                        break;
                     }
+                    WPFAppWindow.PromptInRichTextBox(
+                        $"Shutting down in {i}");
+                    await Task.Delay(TimeSpan.FromSeconds(1));
                 }
                 await WPFAppWindow.Dispatcher.BeginInvoke(() => WPFAppWindow.Close());
             }
