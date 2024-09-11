@@ -3,10 +3,9 @@
 		<Title>IVSoftware.Portable.Threading</Title>
 		<Description>Provides an awaitable hook for non-awaitable flows.</Description>
 		<PackageTags>portable;net;android;ios;mstest;unittest</PackageTags>
-		<!--RepositoryUrl></RepositoryUrl-->
-		<!--PackageProjectUrl></PackageProjectUrl-->
+		<RepositoryUrl>https://github.com/IVSoftware/IVSoftware.Portable.Threading.git</RepositoryUrl>
+		<PackageProjectUrl>https://www.nuget.org/packages/IVSoftware.Portable.Threading</PackageProjectUrl>
 		<RootNamespace>IVSoftware.Portable.Threading</RootNamespace>
-
 		<TargetFramework>netstandard2.0</TargetFramework>
 		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
 		<Authors>IVSoftware, Thomas C. Gregor</Authors>
@@ -18,9 +17,9 @@
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
 		<SignAssembly>True</SignAssembly>
-		<!--AssemblyOriginatorKeyFile></AssemblyOriginatorKeyFile-->
+		<AssemblyOriginatorKeyFile>ivs-240909.pfx</AssemblyOriginatorKeyFile>
 		<DebugType>embedded</DebugType>
-		<BaseVersion>1.0.0</BaseVersion>
+		<BaseVersion>1.1.0</BaseVersion>
 		<VersionPrefix>$(BaseVersion)</VersionPrefix>
 	</PropertyGroup>
 	<ItemGroup>
