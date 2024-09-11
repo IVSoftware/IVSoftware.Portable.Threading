@@ -148,7 +148,8 @@ namespace MSTest.Async.Demo
                             when cmp
                             .Replace(" ", string.Empty)
                             .Contains("StartButton", StringComparison.OrdinalIgnoreCase) :
-                            // 
+                            // Don't release on this. We're looking for changes
+                            // to the Visibility property in this test case.
                             break;
                         default:
                             awaiter.Release();

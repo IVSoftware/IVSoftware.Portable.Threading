@@ -57,27 +57,29 @@ public async Task MyTest_ReturnsData()
     #region L o c a l M e t h o d s
     void localOnAwaited(object? sender, AwaitedEventArgs e)
     {
-        object o;
-        switch (e.Caller)
-        {
-            // Very common scenario of listening for a
-            // property to change after a UI stimulus.
-            case "OnPropertyChanged":
-                if(
-                    e.Args is Dictionary<string,object> args &&
-                    args.TryGetValue(nameof(DependencyPropertyChangedEventArgs), out o) &&
-                    o is DependencyPropertyChangedEventArgs propertyChangedEventArgs)
+                object? o;
+                switch (e.Caller)
                 {
-                    switch (propertyChangedEventArgs.Property.Name)
-                    {
-                        case "MyTargetProperty":
-                            // The property we've been listening to has changed.
-                            actual = $"{propertyChangedEventArgs.NewValue}";
-                            break;
-                    }
+                    // Very common scenario of listening for a
+                    // property to change after a UI stimulus.
+                    case "OnPropertyChanged":
+                        if (e.Args is Dictionary<string, object> args)
+                        {
+                            if (args.TryGetValue(nameof(DependencyPropertyChangedEventArgs), out o) &&
+                            o is DependencyPropertyChangedEventArgs wpfPropertyChanged)
+                            {
+                                switch (wpfPropertyChanged.Property.Name)
+                                {
+                                    case "MyTargetProperty":
+                                        // The property we've been listening to has changed.
+                                        actual = $"{wpfPropertyChanged.NewValue}";
+                                        awaiter.Release();
+                                        break;
+                                }
+                            }
+                        }
+                        break;
                 }
-                break;
-        }
     }
     #endregion L o c a l M e t h o d s
 }
