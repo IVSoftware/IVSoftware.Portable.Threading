@@ -21,6 +21,11 @@
 		<DebugType>embedded</DebugType>
 		<BaseVersion>1.2.0</BaseVersion>
 		<VersionPrefix>$(BaseVersion)</VersionPrefix>
+		<PackageReleaseNotes>
+			- Updated README with a more streamlined example.
+			- Added a demonstration WPF Application and an MSTest routine to exercise it.
+			- MSTest integration provides a practical test routine to validate behavior with the WPF demo.
+		</PackageReleaseNotes>
 	</PropertyGroup>
 	<ItemGroup>
 		<None Include="..\README.md">
