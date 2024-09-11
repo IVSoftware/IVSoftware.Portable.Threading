@@ -1,6 +1,7 @@
 using IVSoftware.Portable.Threading;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Reflection;
 using System.Windows;
 using wpf_app_test_async_void_methods;
 using static IVSoftware.Portable.Threading.Extensions;
@@ -13,30 +14,37 @@ namespace MSTest.Async.Demo
     {
         private static MainWindow? WPFAppWindow;
         private static SemaphoreSlim _uiKeepAlive = new SemaphoreSlim(0, 1);
+        private static TimeSpan TIME_OUT = TimeSpan.FromSeconds(10);
+        private static string TIME_OUT_MESSAGE = $" Expecting response within {TIME_OUT}";
 
         [ClassInitialize]
         public static async Task InitUI(TestContext context)
         {
-            Thread thread = new Thread(async () =>
+            Thread thread = new Thread(() =>
             {
                 Application app = new Application();
                 WPFAppWindow = new MainWindow
                 {
-                    Title = "Test Window",
-                    Width = 400,
-                    Height = 300,
-                    RuntimeMode = RuntimeMode.UnitTest
+                    Title = $"WPF Application ({RuntimeMode.UnitTest})",
+                    RuntimeMode = RuntimeMode.UnitTest,
+                    Height = 600,
                 };
                 WPFAppWindow.Loaded += (sender, e) =>
                 {
                     _uiKeepAlive.Release();
                 };
+                WPFAppWindow.Closed += (sender, e) =>
+                {
+                    _cts.Cancel();
+                };
                 app.Run(WPFAppWindow);
             });
             thread.SetApartmentState(ApartmentState.STA);
             thread.Start();
+            // Wait for UI loaded.
             await _uiKeepAlive.WaitAsync();
         }
+        static CancellationTokenSource _cts = new CancellationTokenSource();
 
         /// <summary>
         /// In this test method, we will wait for user to click buttons. 
@@ -46,10 +54,11 @@ namespace MSTest.Async.Demo
         [TestMethod]
         public async Task TestUserInteractions()
         {
+            PromptInUI(
+                $"{Environment.NewLine}Starting test: {MethodBase.GetCurrentMethod()?.Name}",
+                Color.Maroon);
             SemaphoreSlim awaiter = new SemaphoreSlim(0, 1);
             string? actual = null;
-            var TIME_OUT = TimeSpan.FromSeconds(10);
-            var TIME_OUT_MESSAGE = $" Expecting response within {TIME_OUT}";
             try
             {
                 Awaited += localOnAwaited;
@@ -59,30 +68,31 @@ namespace MSTest.Async.Demo
                 WPFAppWindow?.ShowTestButton(); 
                 // App fires OnAwaited when Visibility property of button changes. 
                 PromptInUI("Wait for button show...", newline: false);
-                await awaiter.WaitAsync(timeout: TimeSpan.FromSeconds(10));
+                await awaiter.WaitAsync(TIME_OUT);
                 localCompare("Visible", actual);
 
-                PromptInUI("Click button [StartTest]", Color.Blue, newline: false);
+                // This block demos the CancellationToken called if user closes window early.
+                PromptInUI("Click button [StartTest]", Color.Blue);
                 // When user clicks StartTest, it hides the StartTest button.
                 // App fires OnAwaited when Visibility property of button changes. 
-                Assert.IsTrue(await awaiter.WaitAsync(TIME_OUT), TIME_OUT_MESSAGE);
+                Assert.IsTrue(await awaiter.WaitAsync(TIME_OUT, cancellationToken: _cts.Token), TIME_OUT_MESSAGE);
                 localCompare("Collapsed", actual);
 
                 // When user clicks A, B, C or D, the Click handler fires OnAwaited
                 WPFAppWindow?.PromptInRichTextBox("Click button [A]", newline: false);
-                await awaiter.WaitAsync(timeout: TimeSpan.FromSeconds(10));
+                await awaiter.WaitAsync(TIME_OUT);
                 localCompare("A", actual);
 
                 WPFAppWindow?.PromptInRichTextBox("Click button [B]", newline: false);
-                await awaiter.WaitAsync(timeout: TimeSpan.FromSeconds(10));
+                await awaiter.WaitAsync(TIME_OUT);
                 localCompare("B", actual);
 
                 WPFAppWindow?.PromptInRichTextBox("Click button [C]", newline: false);
-                await awaiter.WaitAsync(timeout: TimeSpan.FromSeconds(10));
+                await awaiter.WaitAsync(TIME_OUT);
                 localCompare("C", actual);
 
                 WPFAppWindow?.PromptInRichTextBox("Click button [D]", newline: false);
-                await awaiter.WaitAsync(timeout: TimeSpan.FromSeconds(10));
+                await awaiter.WaitAsync(TIME_OUT);
                 localCompare("D", actual);
 
                 void localCompare(string? expected, string? actual)
@@ -100,7 +110,7 @@ namespace MSTest.Async.Demo
             }
             catch(AssertFailedException ex)
             {
-                PromptInUI($"{Environment.NewLine}{ex.Message}", Color.Red);
+                PromptInUI($"{ex.Message}", Color.Red);
             }
             finally
             {
@@ -115,7 +125,6 @@ namespace MSTest.Async.Demo
             }
 
             #region L o c a l M e t h o d s
-            async Task NoException(Action action) { try { await Task.Run(action); } catch(AssertFailedException) { } };
             void localOnAwaited(object sender, AwaitedEventArgs e)
             {
                 // Listen for OnAwaited events now invoked within the fire-and-forget tasks
@@ -156,6 +165,10 @@ namespace MSTest.Async.Demo
         [TestMethod]
         public async Task MyTest_ReturnsData()
         {
+            PromptInUI(
+                $"{Environment.NewLine}Starting test: {MethodBase.GetCurrentMethod()?.Name}",
+                Color.Maroon);
+
             SemaphoreSlim awaiter = new SemaphoreSlim(0, 1);
             string? actual = null;
             try
@@ -170,7 +183,7 @@ namespace MSTest.Async.Demo
                 // Wait for it to have a deterministic
                 // effect after a non-deteministic time.
                 Assert.IsTrue(
-                    condition: await awaiter.WaitAsync(timeout: TimeSpan.FromSeconds(10)),
+                    condition: await awaiter.WaitAsync(TIME_OUT),
                     "Timed out waiting for property change.");
                 PromptInUI("Value Received. ");
 
@@ -236,15 +249,22 @@ namespace MSTest.Async.Demo
         {
             if (WPFAppWindow != null)
             {
-                WPFAppWindow.PromptInRichTextBox($"{Environment.NewLine}ALL TESTS HAVE RUN");
-                // Cosmetic wait
-                for (int i = 10; i >= 0; i--)
+                if (_cts.IsCancellationRequested)
                 {
-                    WPFAppWindow.PromptInRichTextBox(
-                        $"Shutting down in {i}");
-                    await Task.Delay(TimeSpan.FromSeconds(1));
+                    return;
                 }
-                await WPFAppWindow.Dispatcher.BeginInvoke(()=>WPFAppWindow.Close());
+                else
+                {
+                    WPFAppWindow.PromptInRichTextBox($"{Environment.NewLine}ALL TESTS HAVE RUN");
+                    // Cosmetic wait
+                    for (int i = 10; i >= 0; i--)
+                    {
+                        WPFAppWindow.PromptInRichTextBox(
+                            $"Shutting down in {i}");
+                        await Task.Delay(TimeSpan.FromSeconds(1));
+                    }
+                }
+                await WPFAppWindow.Dispatcher.BeginInvoke(() => WPFAppWindow.Close());
             }
         }
     }

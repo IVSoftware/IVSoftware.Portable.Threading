@@ -8,7 +8,7 @@
         xmlns:wfi="clr-namespace:System.Windows.Forms.Integration;assembly=WindowsFormsIntegration"   
         xmlns:wf="clr-namespace:System.Windows.Forms;assembly=System.Windows.Forms"     
         mc:Ignorable="d"
-        Title="MainWindow" Height="300" Width="500">
+        Title="WPF Application" Height="250" Width="400">
     <Window.Resources>
         <conv:EnumToVisibilityConverter x:Key="EnumToVisibilityConverter"/>
     </Window.Resources>
@@ -26,7 +26,8 @@
                 ReadOnly="True"
                 Multiline="True"
                 Margin="10,0,0,0"
-                ScrollBars="Both"/>
+                ScrollBars="Both"
+                BackColor="White"/>
         </wfi:WindowsFormsHost>
         <StackPanel 
             Grid.Row="1"
