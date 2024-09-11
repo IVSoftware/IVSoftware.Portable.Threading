@@ -173,8 +173,6 @@ namespace MSTest.Async.Demo
             string? actual = null;
             try
             {
-                // <PackageReference Include="IVSoftware.Portable.Threading" Version="1.1.0" />
-                // using static IVSoftware.Portable.Threading.Extensions;
                 Awaited += localOnAwaited;
 
                 PromptInUI("Waiting for value... ", newline: false);
