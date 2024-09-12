@@ -16,7 +16,31 @@ namespace MSTest.Async.Demo
         private static SemaphoreSlim _uiKeepAlive = new SemaphoreSlim(0, 1);
         private static TimeSpan TIME_OUT = TimeSpan.FromSeconds(10);
         private static string TIME_OUT_MESSAGE = $" Expecting response within {TIME_OUT}"; 
-        public TestContext? TestContext { get; set; }
+
+        public TestContext? TestContext
+        {
+            get => _testContext;
+            set
+            {
+                if (!Equals(_testContext, value))
+                {
+                    _testContext = value;
+                    // CurrentTestContext = value;
+                }
+            }
+        }
+        TestContext? _testContext = default;
+
+        //[TestMethod]
+        //[UnitTestSource("{E7280539-269D-431F-BE75-96994D31E57E}")]
+        //public void TestMethodWithAttribute()
+        //{
+
+        //}
+
+
+        // Demo only
+        // public static TestContext? CurrentTestContext { get; set; }
 
         [ClassInitialize]
         public static async Task InitUI(TestContext context)
@@ -269,5 +293,21 @@ namespace MSTest.Async.Demo
                 await WPFAppWindow.Dispatcher.BeginInvoke(() => WPFAppWindow.Close());
             }
         }
+    }
+    public class UnitTestSourceAttribute : Attribute
+    {
+        public UnitTestSourceAttribute(string uid, string[] coverages = null)
+        {
+            this.uid = uid;
+            this.coverages = coverages ?? new string[0];
+
+            // For demonstration purposes:
+            // var currentTest = UnitTestWPF.CurrentTestContext;
+
+        }
+        public UnitTestSourceAttribute(string uid, string coverage)
+            : this(uid, new string[] { coverage }) { }
+        public string uid { get; }
+        public string[] coverages { get; }
     }
 }
