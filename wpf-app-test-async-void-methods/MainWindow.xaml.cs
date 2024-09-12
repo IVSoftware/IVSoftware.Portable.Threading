@@ -66,6 +66,9 @@ namespace wpf_app_test_async_void_methods
         protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
         {
             base.OnPropertyChanged(e);
+            Debug.Assert(
+                Dispatcher.CheckAccess(),
+                "Expecting that if you are here then you're on the UI thread");
             if (DataContext?.RuntimeMode == RuntimeMode.UnitTest)
             {
                 this.OnAwaited(new AwaitedEventArgs(args: new Dictionary<string, object>
