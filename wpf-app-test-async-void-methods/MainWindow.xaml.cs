@@ -66,10 +66,13 @@ namespace wpf_app_test_async_void_methods
         protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
         {
             base.OnPropertyChanged(e);
-            this.OnAwaited(new AwaitedEventArgs(args: new Dictionary<string, object>
+            if (DataContext?.RuntimeMode == RuntimeMode.UnitTest)
             {
-                { nameof(DependencyPropertyChangedEventArgs), e }
-            }));
+                this.OnAwaited(new AwaitedEventArgs(args: new Dictionary<string, object>
+                {
+                    { nameof(DependencyPropertyChangedEventArgs), e }
+                }));
+            }
         }
         RichTextBox RichTextBox => (RichTextBox)RichTextBoxHost.Child;
 
@@ -82,11 +85,13 @@ namespace wpf_app_test_async_void_methods
             Dispatcher.BeginInvoke(()=>
                 buttonStartTest.Visibility = Visibility.Visible);
         }
+
         public async void CallSomeAsyncVoidMethod()
         {
             // Demonstration only
             await Task.Delay(TimeSpan.FromSeconds(2.5));
-            MyTargetProperty = "MyExpectedValue";
+            await Dispatcher.BeginInvoke(() =>
+                MyTargetProperty = "MyExpectedValue");
         }
         public string MyTargetProperty
         {

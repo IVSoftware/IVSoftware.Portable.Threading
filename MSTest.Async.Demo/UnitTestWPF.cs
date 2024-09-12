@@ -15,7 +15,8 @@ namespace MSTest.Async.Demo
         private static MainWindow? WPFAppWindow;
         private static SemaphoreSlim _uiKeepAlive = new SemaphoreSlim(0, 1);
         private static TimeSpan TIME_OUT = TimeSpan.FromSeconds(10);
-        private static string TIME_OUT_MESSAGE = $" Expecting response within {TIME_OUT}";
+        private static string TIME_OUT_MESSAGE = $" Expecting response within {TIME_OUT}"; 
+        public TestContext? TestContext { get; set; }
 
         [ClassInitialize]
         public static async Task InitUI(TestContext context)
@@ -46,6 +47,14 @@ namespace MSTest.Async.Demo
         }
         static CancellationTokenSource _cts = new CancellationTokenSource();
 
+        [TestInitialize]
+        public void TestInitialize()
+        {
+            PromptInUI(
+                $"{Environment.NewLine}Starting test: {TestContext.TestName}",
+                Color.Maroon);
+        }
+
         /// <summary>
         /// In this test method, we will wait for user to click buttons. 
         /// Since the test routine doesn't actually initiate the button clicks 
@@ -69,26 +78,26 @@ namespace MSTest.Async.Demo
                 localCompare("Visible", actual);
 
                 // This block demos the CancellationToken called if user closes window early.
-                PromptInUI("Click button [StartTest]", Color.Blue);
+                PromptInUI("Click button [StartTest]", Color.Blue, newline: false);
                 // When user clicks StartTest, it hides the StartTest button.
                 // App fires OnAwaited when Visibility property of button changes. 
                 Assert.IsTrue(await awaiter.WaitAsync(TIME_OUT, cancellationToken: _cts.Token), TIME_OUT_MESSAGE);
                 localCompare("Collapsed", actual);
 
                 // When user clicks A, B, C or D, the Click handler fires OnAwaited
-                WPFAppWindow?.PromptInRichTextBox("Click button [A]", newline: false);
+                WPFAppWindow?.PromptInRichTextBox("Click button [A]", Color.Blue, newline: false);
                 await awaiter.WaitAsync(TIME_OUT);
                 localCompare("A", actual);
 
-                WPFAppWindow?.PromptInRichTextBox("Click button [B]", newline: false);
+                WPFAppWindow?.PromptInRichTextBox("Click button [B]", Color.Blue, newline: false);
                 await awaiter.WaitAsync(TIME_OUT);
                 localCompare("B", actual);
 
-                WPFAppWindow?.PromptInRichTextBox("Click button [C]", newline: false);
+                WPFAppWindow?.PromptInRichTextBox("Click button [C]", Color.Blue, newline: false);
                 await awaiter.WaitAsync(TIME_OUT);
                 localCompare("C", actual);
 
-                WPFAppWindow?.PromptInRichTextBox("Click button [D]", newline: false);
+                WPFAppWindow?.PromptInRichTextBox("Click button [D]", Color.Blue, newline: false);
                 await awaiter.WaitAsync(TIME_OUT);
                 localCompare("D", actual);
 
@@ -107,6 +116,10 @@ namespace MSTest.Async.Demo
             }
             catch(AssertFailedException ex)
             {
+                if(ex.Message.Contains("expecting response", StringComparison.OrdinalIgnoreCase))
+                {
+                    PromptInUI(string.Empty);
+                }
                 PromptInUI($"{ex.Message}", Color.Red);
             }
             finally
