@@ -17,30 +17,7 @@ namespace MSTest.Async.Demo
         private static TimeSpan TIME_OUT = TimeSpan.FromSeconds(10);
         private static string TIME_OUT_MESSAGE = $" Expecting response within {TIME_OUT}"; 
 
-        public TestContext? TestContext
-        {
-            get => _testContext;
-            set
-            {
-                if (!Equals(_testContext, value))
-                {
-                    _testContext = value;
-                    // CurrentTestContext = value;
-                }
-            }
-        }
-        TestContext? _testContext = default;
-
-        //[TestMethod]
-        //[UnitTestSource("{E7280539-269D-431F-BE75-96994D31E57E}")]
-        //public void TestMethodWithAttribute()
-        //{
-
-        //}
-
-
-        // Demo only
-        // public static TestContext? CurrentTestContext { get; set; }
+        public TestContext? TestContext { get; set; }
 
         [ClassInitialize]
         public static async Task InitUI(TestContext context)

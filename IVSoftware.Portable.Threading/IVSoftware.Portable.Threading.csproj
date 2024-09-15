@@ -19,12 +19,11 @@
 		<SignAssembly>True</SignAssembly>
 		<AssemblyOriginatorKeyFile>ivs-240909.pfx</AssemblyOriginatorKeyFile>
 		<DebugType>embedded</DebugType>
-		<BaseVersion>1.2.0</BaseVersion>
-		<VersionPrefix>$(BaseVersion)</VersionPrefix>
+		<BaseVersion>1.3.0</BaseVersion>
+		<VersionPrefix>$(BaseVersion)-preview3</VersionPrefix>
 		<PackageReleaseNotes>
-			- Updated README with a more streamlined example.
-			- Added a demonstration WPF Application and an MSTest routine to exercise it.
-			- MSTest integration provides a practical test routine to validate behavior with the WPF demo.
+			- OnAwaited can now be called without args.
+			- AwaitedEventArgs can now use Collection Initializer syntax.
 		</PackageReleaseNotes>
 	</PropertyGroup>
 	<ItemGroup>

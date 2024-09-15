@@ -2,7 +2,7 @@ This package addresses a need that is crucial and common in a test (e.g. MSTest)
 
 I saw the question recently worded as _How can `async void` methods be tested?_ Or, to put a finer point on it, how can we await the unawaitable?
 
-This is a tried and true approach that I've used extensively for testing my UI application in "just the basic" MSTest environment. My early attempts always seemed to pile additional timing uncertainties on top of the ones I was trying to test. This solution is dirt simple. I made a helper class that exposes an extension for `object` that fires a custom static event automatically tagged with the caller method name. There's also an args property that can carry a Dictionary<string, object> or a json payload (for example), and this is to provide context to the MSTest method that is listening to it, plus you have the sender object itself. Taken together, this provides a rich context in which to evaluate this moment in the app's asynchronous life. 
+This is a tried and true approach that I've used extensively for testing my UI application in "just the basic" MSTest environment. My early attempts always seemed to pile additional timing uncertainties on top of the ones I was trying to test. This solution is dirt simple. This helper class that exposes an extension for `object` that fires a custom static event automatically tagged with the caller method name. There's also an args property that can carry a Dictionary<string, object> or a json payload (for example), and this is to provide context to the MSTest method that is listening to it, plus you have the sender object itself. Taken together, this provides a rich context in which to evaluate this moment in the app's asynchronous life. 
 
 One of the simplest examples I can think of would be the ability to await an expected property change from within the synchronous `System.Windows.Window.OnPropertyChanged()` method in the app under test. You can do this by adding one line to call the `OnAwaited` extension:
 
@@ -84,3 +84,62 @@ public async Task MyTest_ReturnsData()
     #endregion L o c a l M e t h o d s
 }
 ```
+
+#### Use case : Override a property for Test
+
+When a "local listener" has subscribed to the `Awaited` event, the AwaitedEventArgs class is designed to allow the event handler to inject values that can be utilized after OnAwaited executes. This snippet shows a hook in a property named `Space` and when (for example) **MSTest** is running, it can listen for this caller and inject a value of **UnitTestSpace** that provides a controlled environment in which the tests to run.
+
+```       
+public string Space
+{
+    get
+    {
+        return _space;
+    }
+    private set
+    {
+        if (string.IsNullOrEmpty(value))
+        {
+            value = nameof(SpecialPathToken.Primary);
+        }
+        var args = new AwaitedEventArgs
+        {
+            { "Value", value },
+        };
+        this.OnAwaited(args);
+
+        if (Environment.RuntimeContext > Core.RuntimeContext.Production)
+        {
+            if (args.TryGetValue("ValueForTest", out string valueForTest))
+            {
+                value = valueForTest;
+            }
+        }
+        if (!Equals(_space, value))
+        {
+            _space = value;
+            OnPropertyChanging();
+            OnPropertyChanged();
+        }
+    }
+}
+```
+
+On the client side, the `Awaited` handler (which is usually coded as a local method) could be implemented:
+
+```
+#region L o c a l F x
+void localOnAwaited(object? sender, AwaitedEventArgs e)
+{
+    switch (e.Caller)
+    {
+        case nameof(ProfileSerializer.Space):
+            // Optionally qualifying by sender can add more precision to the filter.
+            if (sender is ProfileSerializer)
+            {
+                e["ValueForTest"] = "UnitTestSpace";
+            }
+            break;
+    }
+}
+#endregion L o c a l F x
