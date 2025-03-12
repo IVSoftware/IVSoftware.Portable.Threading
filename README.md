@@ -190,7 +190,7 @@ public void MethodUnderTest()
 }
 ```
 
-2. **Test Context Adjustment:** Upon receiving this notification, MSTest may adjust the test context by setting values such as `StdKey.RunContext` to `RunContext.Test` and potentially supplying a custom filter parameter. To ensure that the `localOnAwaited` function only responds when the caller is specifically "MethodUnderTest", you need to incorporate a check for the caller within the function. Here's how you can modify your function to include this check:
+2. **Test Context Adjustment:** Upon receiving the initial notification, MSTest may adjust the test context by setting values such as StdKey.RunContext to RunContext.Test and potentially supplying a custom filter parameter. To ensure that the localOnAwaited function responds only when the caller is specifically "MethodUnderTest", incorporate a check for the caller within the function. Here's how you can refine your function to include this selective response:
 
 ```
 void localOnAwaited(object sender, AwaitedEventArgs e)
@@ -201,12 +201,29 @@ void localOnAwaited(object sender, AwaitedEventArgs e)
             e.Add(StdKey.RunContext, RunContext.Test);
             e.Add(StdKey.SelectedItemsFilterParameter, "SpecificFilter");
             break;
+        default:
+            // Handle other cases or do nothing
+            break;
     }
 }
 ```
+3. **Responding to Adjustments:** Back in the method under test, after the initial event, it may check these settings and apply the custom filter parameter to refine its operations before pushing the results back onto the dictionary stack or proceeding with further logic:
 
+```
+// Continuing within the MethodUnderTest
+if (e.ContainsKey(StdKey.RunContext) && e[StdKey.RunContext] == RunContext.Test)
+{
+    // Apply filter parameter if provided
+    if (e.ContainsKey(StdKey.SelectedItemsFilterParameter))
+    {
+        var filter = e[StdKey.SelectedItemsFilterParameter];
+        // Apply filter logic here
+    }
 
-
+    // Potentially fire another event or continue with modified behavior
+    this.OnAwaited(new AwaitedEventArgs { { "FilteredResults", FilteredItems } });
+}
+```
 ___
 
 ### Addressing the Suitability of AwaitedEventArgs for Parallel Testing
