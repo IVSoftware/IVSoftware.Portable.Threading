@@ -61,7 +61,7 @@ class MockButton
 
 In MSTest, a named local function is declared to safely subscribe and unsubscribe to the `Awaited` event for the duration of the test.
 
-```
+```csharp
 using IVSoftware.Portable.Threading;
 using static IVSoftware.Portable.Threading.Extensions;
 
@@ -94,7 +94,7 @@ public async Task AwaitAsynchronousVoid()
 
 _Where `Increment(key)` is an Extension Method for Dictionary<string, object>_
 
-```
+```csharp
 public static partial class TestExtensions
 {
     public static int Increment(this Dictionary<string, int> @this, string key)
@@ -114,7 +114,7 @@ ___
 
 This guide offers a concise overview of how to effectively utilize `AwaitedEventArgs` in your projects. When invoking the static `OnAwaited()` method without specific arguments, an instance of `AwaitedEventArgs` is automatically created. This instance captures the calling method's name, which, along with the sender argument of the event, facilitates preliminary filtering in the `localOnAwaited` handler used in MSTest scenarios.
 
-```
+```csharp
 using IVSoftware.Portable.Threading;
 
 public void MethodUnderTest()
@@ -133,7 +133,7 @@ ___
 
 This example demonstrates how to populate AwaitedEventArgs with string keys:
 
-```
+```csharp
 using IVSoftware.Portable.Threading;
 
 public void MethodUnderTest()
@@ -150,7 +150,7 @@ ___
 
 Enumeration values used as keys will be converted to string keys. This approach enhances code readability and consistency:
 
-```
+```csharp
 using IVSoftware.Portable.Threading;
 
 public void MethodUnderTest()
@@ -168,7 +168,7 @@ ___
 
 When the args parameter is explicitly set, e.Args becomes an independent object instance that can be used either in place of or alongside the dictionary. This feature offers a convenient shortcut, potentially eliminating the need for setting or retrieving dictionary values altogether.
 
-```
+```csharp
 using IVSoftware.Portable.Threading;
 
 public void MethodUnderTest()
@@ -183,7 +183,7 @@ The dictionary in AwaitedEventArgs supports two-way interactions, crucial for dy
 
 1. **Initial Notification:** The method under test first fires an OnAwaited event with default parameters to notify MSTest of its initialization:
 
-```
+```csharp
 public void MethodUnderTest()
 {
     this.OnAwaited(new AwaitedEventArgs());
@@ -192,7 +192,7 @@ public void MethodUnderTest()
 
 2. **Test Context Adjustment:** Upon receiving the initial notification, MSTest may adjust the test context by setting values such as StdKey.RunContext to RunContext.Test and potentially supplying a custom filter parameter. To ensure that the localOnAwaited function responds only when the caller is specifically "MethodUnderTest", incorporate a check for the caller within the function. Here's how you can refine your function to include this selective response:
 
-```
+```csharp
 void localOnAwaited(object sender, AwaitedEventArgs e)
 {
     switch(e.Caller)
@@ -209,7 +209,7 @@ void localOnAwaited(object sender, AwaitedEventArgs e)
 ```
 3. **Responding to Adjustments:** Back in the method under test, after the initial event, it may check these settings and apply the custom filter parameter to refine its operations before pushing the results back onto the dictionary stack or proceeding with further logic:
 
-```
+```csharp
 // Continuing within the MethodUnderTest
 if (e.ContainsKey(StdKey.RunContext) && e[StdKey.RunContext] == RunContext.Test)
 {
