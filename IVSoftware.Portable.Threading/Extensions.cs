@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 
 namespace IVSoftware.Portable.Threading
 {
@@ -52,13 +53,17 @@ namespace IVSoftware.Portable.Threading
         /// <param name="caller">The name of the method that instantiated the object, automatically captured.</param>
         public AwaitedEventArgs([CallerMemberName] string caller = null)
         {
+            if (!string.IsNullOrEmpty(caller) && !Regex.IsMatch(caller, @"^[a-zA-Z_][a-zA-Z0-9_]*$"))
+            {
+                throw new ArgumentException($"This call must be disambiguated by specifying 'args: {caller}'");
+            }
             Caller = caller;
         }
 
         /// <summary>
         /// Constructs a new instance of AwaitedEventArgs, allowing for the Args property to be set with a custom object.
         /// </summary>
-        /// <param name="args">The object to use for the Args property. Throws an exception if null.</param>
+        /// <param name="args">Overrides the default Dictionary<string, object> with custom args</string></param>
         /// <param name="caller">The name of the method that instantiated the object, automatically captured.</param>
         public AwaitedEventArgs(object args, [CallerMemberName] string caller = null)
             : this(caller)
