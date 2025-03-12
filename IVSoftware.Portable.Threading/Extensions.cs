@@ -53,11 +53,12 @@ namespace IVSoftware.Portable.Threading
         /// <param name="caller">The name of the method that instantiated the object, automatically captured.</param>
         public AwaitedEventArgs([CallerMemberName] string caller = null)
         {
-            if (!string.IsNullOrEmpty(caller) && !Regex.IsMatch(caller, @"^[a-zA-Z_][a-zA-Z0-9_]*$"))
+            if (caller is string s && !Regex.IsMatch(s, @"^[a-zA-Z_][a-zA-Z0-9_]*$"))
             {
-                throw new ArgumentException($"This call must be disambiguated by specifying 'args: {caller}'");
+                Args = caller;
+                Caller = $"ERROR: Try disambiguating call by specifying 'args: {caller}'";
             }
-            Caller = caller;
+            else Caller = caller;
         }
 
         /// <summary>

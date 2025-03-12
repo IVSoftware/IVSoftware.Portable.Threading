@@ -1,3 +1,10 @@
+This NuGet package provides a highly focused, lightweight solution for testing UI interactions in .NET applications, suitable for both asynchronous and synchronous environments such as WPF or WinForms. It simplifies the testing of async void methods and also supports the transmittal of ad hoc test contexts that are not specifically related to asynchronous operations. The package offers a minimalistic approach that integrates seamlessly with MSTest, helping to manage the complexities typically associated with UI tests by enabling a structured way to capture and analyze method invocations and their contexts within your test suites.
+
+
+
+
+
+
 This package addresses a need that is crucial and common in a test (e.g. MSTest) environment where evaluating asynchronous UI interactions in something like a WPF or Winforms app is often complex and fraught with challenges. These tests might involve stimuli that are either test-driven or interactively user-driven. They may also require monitoring for changes in typically synchronous methods like OnPropertyChanged, or tracking updates in a continuously running polling loop.
 
 I saw the question recently worded as _How can `async void` methods be tested?_ Or, to put a finer point on it, how can we await the unawaitable?
