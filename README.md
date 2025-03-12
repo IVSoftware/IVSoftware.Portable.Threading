@@ -129,7 +129,7 @@ ___
 
 You can configure the AwaitedEventArgs by using the collection initializer syntax, just as you would with any dictionary. Populate these key-value pairs using either string keys or enumeration values.
 ___
-##### Using a String Key
+##### Using String Keys
 
 This example demonstrates how to populate AwaitedEventArgs with string keys:
 
