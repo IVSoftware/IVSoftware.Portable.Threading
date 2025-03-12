@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
+using static System.Collections.Generic.Dictionary<string, object>;
 
 namespace IVSoftware.Portable.Threading
 {
@@ -39,7 +40,12 @@ namespace IVSoftware.Portable.Threading
         /// <summary>
         /// By default, this object behaves like a dictionary, storing key-value pairs.
         /// </summary>
-        public object Args { get; } = new Dictionary<string, object>();
+        public object Args => _args ?? _dict;
+
+        public object _args = null;
+
+
+        private Dictionary<string, object> _dict = new Dictionary<string, object>();
 
         /// <summary>
         /// Initializes a new instance of the AwaitedEventArgs class with the calling method's name as the caller.
@@ -55,10 +61,14 @@ namespace IVSoftware.Portable.Threading
         {
             if (caller is string s && !Regex.IsMatch(s, @"^[a-zA-Z_][a-zA-Z0-9_]*$"))
             {
-                Args = caller;
+                _args = caller;
                 Caller = $"ERROR: Try disambiguating call by specifying 'args: {caller}'";
             }
-            else Caller = caller;
+            else
+            {
+                _args = null; // This means that Args returns Dictionary<string, object> !!
+                Caller = caller;
+            }
         }
 
         /// <summary>
@@ -67,17 +77,7 @@ namespace IVSoftware.Portable.Threading
         /// <param name="args">Overrides the default Dictionary<string, object> with custom args</string></param>
         /// <param name="caller">The name of the method that instantiated the object, automatically captured.</param>
         public AwaitedEventArgs(object args, [CallerMemberName] string caller = null)
-            : this(caller)
-        {
-            if (args != null)
-            {
-                Args = args;
-            }
-            else
-            {
-                throw new ArgumentNullException(nameof(args), "Args cannot be null; provide a valid object.");
-            }
-        }
+            : this(caller) => _args = args;
 
         /// <summary>
         /// Adds a key-value pair to the Args dictionary, enabling the use of collection initializer syntax.
@@ -157,7 +157,6 @@ namespace IVSoftware.Portable.Threading
             }
             return Enumerable.Empty<object>().GetEnumerator();
         }
-
         /// <summary>
         /// Tries to retrieve a value by key from the Args property when it is a dictionary, casting it to the specified type.
         /// This method provides a way to attempt to retrieve values without throwing exceptions,
@@ -180,5 +179,9 @@ namespace IVSoftware.Portable.Threading
             value = default;
             return false;
         }
+        public int Count => _dict.Count;
+        public KeyCollection Keys => _dict.Keys;
+        public ValueCollection Values => _dict.Values;
+        public bool ContainsKey(string key) => _dict.ContainsKey(key);
     }
 }
