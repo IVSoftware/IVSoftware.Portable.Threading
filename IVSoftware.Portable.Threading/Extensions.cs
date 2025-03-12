@@ -44,7 +44,6 @@ namespace IVSoftware.Portable.Threading
 
         public object _args = null;
 
-
         private Dictionary<string, object> _dict = new Dictionary<string, object>();
 
         /// <summary>
@@ -100,6 +99,19 @@ namespace IVSoftware.Portable.Threading
                 throw new InvalidOperationException("Cannot add key-value pairs when Args is not a dictionary.");
             }
         }
+
+        /// <summary>
+        /// Adds a key-value pair to the Args dictionary using an enumeration as the key, enabling the use of collection initializer syntax.
+        /// Throws an exception if Args is not a dictionary.
+        /// </summary>
+        /// <param name="stdKey">The enumeration key to be converted to a string and used as the key for the value to be stored.</param>
+        /// <param name="value">The value to be stored.</param>
+        /// <remarks>
+        /// This method extends the functionality to use enumeration values as keys by converting them to their string representations. 
+        /// It allows the AwaitedEventArgs to be initialized or modified using collection initializer syntax
+        /// as long as Args is in its default dictionary form, enhancing ease of use when setting multiple key-value pairs.
+        /// This is particularly useful when enum values represent a set of predefined keys.
+        /// </remarks>
         public void Add(Enum stdKey, object value)
         {
             if (Args is Dictionary<string, object> dict)

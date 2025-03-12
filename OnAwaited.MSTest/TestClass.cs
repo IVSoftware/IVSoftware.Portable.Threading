@@ -1,4 +1,5 @@
 ﻿using IVSoftware.Portable.Threading;
+using static IVSoftware.Portable.Threading.Extensions;
 using System.Diagnostics;
 
 namespace OnAwaited.MSTest
@@ -25,7 +26,7 @@ namespace OnAwaited.MSTest
             SemaphoreSlim awaiter = new SemaphoreSlim(1, 1);
             try
             {
-                Extensions.Awaited += localOnAwaited;
+                Awaited += localOnAwaited;
 
                 foreach (var testResponse in Enum.GetValues<TestResponse>())
                 {
@@ -65,7 +66,7 @@ namespace OnAwaited.MSTest
             }
             finally
             {
-                Extensions.Awaited -= localOnAwaited;
+                Awaited -= localOnAwaited;
                 awaiter.Wait(0);
                 awaiter.Release();
             }

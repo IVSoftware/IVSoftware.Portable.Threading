@@ -1,152 +1,234 @@
 This NuGet package provides a highly focused, lightweight solution for testing UI interactions in .NET applications, suitable for both asynchronous and synchronous environments such as WPF or WinForms. It simplifies the testing of async void methods and also supports the transmittal of ad hoc test contexts that are not specifically related to asynchronous operations. The package offers a minimalistic approach that integrates seamlessly with MSTest, helping to manage the complexities typically associated with UI tests by enabling a structured way to capture and analyze method invocations and their contexts within your test suites.
 
+Evaluating asynchronous UI interactions in something like a WPF or Winforms app is often complex and fraught with challenges. These tests might involve stimuli that are either test-driven or interactively user-driven. They may also require monitoring for changes in typically synchronous methods like OnPropertyChanged, or tracking updates in a continuously running polling loop.
 
+__
+## Features
 
+- **Simplified Testing of Async Operations**: Even `async void` methods can be awaited by inserting an uncomplicated test hook, simplifying the handling of asynchronous behavior in tests.
+- **Integration with MSTest**: Designed to work seamlessly with Microsoft's testing framework, ensuring compatibility and ease of use.
+- **Lightweight and Focused**: Referencing this NuGet results in a negligible footprint and creates no other dependencies, maintaining the integrity of your project's dependency graph.
+- **Also supports synchronous transmittal of Test Contexts**: Facilitates the passing of contextual information within tests.
 
+___
 
+**Awaiting the Unawaitable**
 
-This package addresses a need that is crucial and common in a test (e.g. MSTest) environment where evaluating asynchronous UI interactions in something like a WPF or Winforms app is often complex and fraught with challenges. These tests might involve stimuli that are either test-driven or interactively user-driven. They may also require monitoring for changes in typically synchronous methods like OnPropertyChanged, or tracking updates in a continuously running polling loop.
+This concept pertains to the testing of asynchronous methods that do not return a `Task`, making them difficult to await using conventional asynchronous testing strategies. This package provides mechanisms to effectively handle and test these scenarios.
 
-I saw the question recently worded as _How can `async void` methods be tested?_ Or, to put a finer point on it, how can we await the unawaitable?
+### Usage Example
 
-This is a tried and true approach that I've used extensively for testing my UI application in "just the basic" MSTest environment. My early attempts always seemed to pile additional timing uncertainties on top of the ones I was trying to test. This solution is dirt simple. This helper class that exposes an extension for `object` that fires a custom static event automatically tagged with the caller method name. There's also an args property that can carry a Dictionary<string, object> or a json payload (for example), and this is to provide context to the MSTest method that is listening to it, plus you have the sender object itself. Taken together, this provides a rich context in which to evaluate this moment in the app's asynchronous life. 
+Below is a simplified class that demonstrates how to use the NuGet package to test asynchronous and synchronous event-driven UI interactions:
 
-One of the simplest examples I can think of would be the ability to await an expected property change from within the synchronous `System.Windows.Window.OnPropertyChanged()` method in the app under test. You can do this by adding one line to call the `OnAwaited` extension:
-
-#### App under test
-
-```
-// <PackageReference Include="IVSoftware.Portable.Threading" Version="*" />
-// using IVSoftware.Portable.Threading;
-// The synchronous method you want to observe but can't (or shouldn't) call directly. 
-protected override void OnPropertyChanged(DependencyPropertyChangedEventArgs e)
+```csharp
+class MockClassUnderTest
 {
-    base.OnPropertyChanged(e);
-    this.OnAwaited(new AwaitedEventArgs(args: new Dictionary<string, object>
+    public TestResponse TestResponse { get; set; }
+    public TestMode TestMode { get; set; }
+    
+    public MockButton ButtonClickMe { get; } = new MockButton
     {
-        { nameof(DependencyPropertyChangedEventArgs), e }
-    }));
+        Text = "Click Me",
+    };
+
+    public MockClassUnderTest() => ButtonClickMe.Clicked += ExecClick;
+
+    protected virtual void ExecClick(object? sender, EventArgs e)
+    {
+        if (TestMode == TestMode.Asynchronous)
+        {
+            Task.Run(async () =>
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1.1));
+                this.OnAwaited();
+            });
+        }
+        else
+        {
+            this.OnAwaited();
+        }
+    }
+}
+
+class MockButton
+{
+    public event EventHandler? Clicked;
+    public void PerformClick() => Clicked?.Invoke(this, EventArgs.Empty);
 }
 ```
 
-#### MSTest
+### Test Implementation
 
-In the test method, the static `Awaited` event is subscribed just for the duration of this particular test. Once its raised, it can be inspected to see who the sending object is, to see what method actually called it, and to examine whatever rich treasures have been pushed into the args object for detailed analysis.
+In MSTest, a named local function is declared to safely subscribe and unsubscribe to the `Awaited` event for the duration of the test.
 
 ```
-// using static IVSoftware.Portable.Threading.Extensions;
+using IVSoftware.Portable.Threading;
+using static IVSoftware.Portable.Threading.Extensions;
+
 [TestMethod]
-public async Task MyTest_ReturnsData()
+public async Task AwaitAsynchronousVoid()
 {
-    SemaphoreSlim awaiter = new SemaphoreSlim(0, 1);
-    string? actual = null;
+    var mockUT = new MockClassUnderTest { TestMode = TestMode.Asynchronous };
+    var callbacks = new Dictionary<string, int>();
+    var awaiter = new SemaphoreSlim(1, 1);
+
+    void localOnAwaited(object? sender, AwaitedEventArgs e)
+    {
+        callbacks.Increment(e.Caller);
+        awaiter.Release(); // Ensure to release after handling to continue the test execution.
+    }
+
     try
     {
         Awaited += localOnAwaited;
-
-        WPFAppWindow?.CallSomeAsyncVoidMethod();
-        // Wait for it to have a deterministic
-        // effect after a non-deteministic time.
-        Assert.IsTrue(
-            condition: await awaiter.WaitAsync(timeout: TimeSpan.FromSeconds(10)),
-            "Timed out waiting for property change.");
-        Assert.AreEqual(
-            expected: "MyExpectedValue",
-            actual: actual,
-            $"An unexpected value was detected in {nameof(WPFAppWindow)}.OnPropertyChanged().");
+        mockUT.ButtonClickMe.PerformClick();
+        await awaiter.WaitAsync(TimeSpan.FromSeconds(2)); // Adjust as needed based on expected delay
+        Assert.IsTrue(callbacks.ContainsKey("ExecClick"), "ExecClick was not called.");
     }
     finally
     {
-        // CRITICAL to unconditionally unsubscribe
-        // from the static method when done.
-        Awaited -= localOnAwaited;
-    }
-    #region L o c a l M e t h o d s
-    void localOnAwaited(object? sender, AwaitedEventArgs e)
-    {
-                object? o;
-                switch (e.Caller)
-                {
-                    // Very common scenario of listening for a
-                    // property to change after a UI stimulus.
-                    case "OnPropertyChanged":
-                        if (e.Args is Dictionary<string, object> args)
-                        {
-                            if (args.TryGetValue(nameof(DependencyPropertyChangedEventArgs), out o) &&
-                            o is DependencyPropertyChangedEventArgs wpfPropertyChanged)
-                            {
-                                switch (wpfPropertyChanged.Property.Name)
-                                {
-                                    case "MyTargetProperty":
-                                        // The property we've been listening to has changed.
-                                        actual = $"{wpfPropertyChanged.NewValue}";
-                                        awaiter.Release();
-                                        break;
-                                }
-                            }
-                        }
-                        break;
-                }
-    }
-    #endregion L o c a l M e t h o d s
-}
-```
-
-#### Use case : Override a property for Test
-
-When a "local listener" has subscribed to the `Awaited` event, the AwaitedEventArgs class is designed to allow the event handler to inject values that can be utilized after OnAwaited executes. This snippet shows a hook in a property named `Space` and when (for example) **MSTest** is running, it can listen for this caller and inject a value of **UnitTestSpace** that provides a controlled environment in which the tests to run.
-
-```       
-public string Space
-{
-    get
-    {
-        return _space;
-    }
-    private set
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            value = nameof(SpecialPathToken.Primary);
-        }
-        var args = new AwaitedEventArgs
-        {
-            { "Value", value },
-        };
-        this.OnAwaited(args);
-
-        if (Environment.RuntimeContext > Core.RuntimeContext.Production)
-        {
-            if (args.TryGetValue("ValueForTest", out string valueForTest))
-            {
-                value = valueForTest;
-            }
-        }
-        if (!Equals(_space, value))
-        {
-            _space = value;
-            OnPropertyChanging();
-            OnPropertyChanged();
-        }
+        Awaited -= localOnAwaited; // Unsubscribe using the same instance of the delegate.
     }
 }
 ```
 
-On the client side, the `Awaited` handler (which is usually coded as a local method) could be implemented:
+_Where `Increment(key)` is an Extension Method for Dictionary<string, object>_
 
 ```
-#region L o c a l F x
-void localOnAwaited(object? sender, AwaitedEventArgs e)
+public static partial class TestExtensions
 {
-    switch (e.Caller)
+    public static int Increment(this Dictionary<string, int> @this, string key)
     {
-        case nameof(ProfileSerializer.Space):
-            // Optionally qualifying by sender can add more precision to the filter.
-            if (sender is ProfileSerializer)
-            {
-                e["ValueForTest"] = "UnitTestSpace";
-            }
+        if (string.IsNullOrWhiteSpace(key))
+            throw new ArgumentException($"The {nameof(key)} argument cannot be null or empty");
+        if (@this.TryGetValue(key, out var value)) value++;
+        else value = 1;
+        @this[key] = value;
+        return value;
+    }
+}
+```
+___
+
+**Quick Start Guide for AwaitedEventArgs**
+
+This guide offers a concise overview of how to effectively utilize `AwaitedEventArgs` in your projects. When invoking the static `OnAwaited()` method without specific arguments, an instance of `AwaitedEventArgs` is automatically created. This instance captures the calling method's name, which, along with the sender argument of the event, facilitates preliminary filtering in the `localOnAwaited` handler used in MSTest scenarios.
+
+```
+using IVSoftware.Portable.Threading;
+
+public void MethodUnderTest()
+{
+    // Raises `Awaited` with sender=this and e.Caller="MethodUnderTest".
+    this.OnAwaited();
+}
+```
+___
+
+#### Customizing Event Data
+
+You can configure the AwaitedEventArgs by using the collection initializer syntax, just as you would with any dictionary. Populate these key-value pairs using either string keys or enumeration values.
+___
+##### Using a String Key
+
+This example demonstrates how to populate AwaitedEventArgs with string keys:
+
+```
+using IVSoftware.Portable.Threading;
+
+public void MethodUnderTest()
+{
+    this.OnAwaited(new AwaitedEventArgs
+    {
+        {"Key1", "Value1"},
+        {"Key2", 100}
+    });
+}
+```
+___
+##### Using a User-Defined Enumeration as a Standard Key
+
+Enumeration values used as keys will be converted to string keys. This approach enhances code readability and consistency:
+
+```
+using IVSoftware.Portable.Threading;
+
+public void MethodUnderTest()
+{
+    this.OnAwaited(new AwaitedEventArgs
+    {
+        {"StdKey.Key1", "Value1"},
+        {"Std.Key2", 100}
+    });
+}
+```
+___
+
+##### Setting Args as an Independent Object Instance
+
+When the args parameter is explicitly set, e.Args becomes an independent object instance that can be used either in place of or alongside the dictionary. This feature offers a convenient shortcut, potentially eliminating the need for setting or retrieving dictionary values altogether.
+
+```
+using IVSoftware.Portable.Threading;
+
+public void MethodUnderTest()
+{
+    this.OnAwaited(new AwaitedEventArgs(args: SelectedItems);
+}
+```
+___
+**Two-Way Interaction with Dictionary Values**
+
+The dictionary in AwaitedEventArgs supports two-way interactions, crucial for dynamic test setups. Here’s how it typically works in a testing scenario:
+
+1. **Initial Notification:** The method under test first fires an OnAwaited event with default parameters to notify MSTest of its initialization:
+
+```
+public void MethodUnderTest()
+{
+    this.OnAwaited(new AwaitedEventArgs());
+}
+```
+
+2. **Test Context Adjustment:** Upon receiving this notification, MSTest may adjust the test context by setting values such as `StdKey.RunContext` to `RunContext.Test` and potentially supplying a custom filter parameter. To ensure that the `localOnAwaited` function only responds when the caller is specifically "MethodUnderTest", you need to incorporate a check for the caller within the function. Here's how you can modify your function to include this check:
+
+```
+void localOnAwaited(object sender, AwaitedEventArgs e)
+{
+    switch(e.Caller)
+    {
+        case nameof(ClassUnderTest.MethodUnderTest):
+            e.Add(StdKey.RunContext, RunContext.Test);
+            e.Add(StdKey.SelectedItemsFilterParameter, "SpecificFilter");
             break;
     }
 }
-#endregion L o c a l F x
+```
+
+
+
+___
+
+### Addressing the Suitability of AwaitedEventArgs for Parallel Testing
+
+**Parallel testing** in modern software development requires robust and thread-safe components capable of handling multiple operations concurrently. `AwaitedEventArgs`, integral to the NuGet package, is expressly designed for such environments. It features a flexible architecture that supports the inclusion of thread-specific data and unique identifiers like GUIDs alongside standard `Caller` and `Sender` information. This design allows for a clear and isolated context for each event, crucial for accurate and reliable parallel testing.
+
+#### Key Benefits:
+
+- **Context-Rich Events**: Each `AwaitedEventArgs` instance can encapsulate detailed execution contexts, including thread IDs or GUIDs, to uniquely identify and trace the source and state of each event. This makes it easier to debug and analyze test results in a parallel execution scenario.
+
+- **Concurrency-Optimized**: By allowing testers to attach specific, thread-bound data to events, `AwaitedEventArgs` helps maintain data integrity and prevent state bleed across concurrent tests. This is essential for achieving accurate and deterministic test outcomes in multithreaded applications.
+
+- **Skillful Implementation**: Users engaged in parallel testing are often well-versed in the complexities of such environments. `AwaitedEventArgs` leverages this expertise by offering a flexible yet structured way to manage event data, aligning with advanced testing practices that require meticulous context management and thread safety.
+
+#### Usage Recommendations:
+
+To maximize the benefits of `AwaitedEventArgs` in parallel testing:
+- **Incorporate Unique Identifiers**: Enhance traceability and isolation by including unique identifiers for each test execution within the event arguments.
+- **Manage Subscriptions Carefully**: Ensure that event subscriptions and unsubscriptions are handled in a thread-safe manner to avoid cross-test interference.
+- **Employ Proper Synchronization**: Utilize appropriate synchronization techniques when accessing shared resources from event handlers to prevent race conditions.
+
+`AwaitedEventArgs` is not just compatible with parallel testing—it is optimized for it, providing a solid foundation for building reliable, scalable, and effective test suites.
+
+___
+
