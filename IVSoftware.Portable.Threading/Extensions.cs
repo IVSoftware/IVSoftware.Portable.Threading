@@ -100,6 +100,17 @@ namespace IVSoftware.Portable.Threading
                 throw new InvalidOperationException("Cannot add key-value pairs when Args is not a dictionary.");
             }
         }
+        public void Add(Enum stdKey, object value)
+        {
+            if (Args is Dictionary<string, object> dict)
+            {
+                dict[stdKey.ToString()] = value; // Using indexer to allow overwriting existing keys.
+            }
+            else
+            {
+                throw new InvalidOperationException("Cannot add key-value pairs when Args is not a dictionary.");
+            }
+        }
 
         /// <summary>
         /// Retrieves or sets a value by key when Args is a dictionary, which is the default configuration.
@@ -144,6 +155,19 @@ namespace IVSoftware.Portable.Threading
             }
         }
 
+        /// <summary>
+        /// Retrieves or sets a value by converting an enumeration key to its string representation and using it to access the dictionary.
+        /// This method simplifies the use of enumeration values as keys for dictionary operations.
+        /// </summary>
+        /// <param name="stdKey">The enumeration key to be converted to a string and used for dictionary access.</param>
+        /// <param name="throw">If true, enables throwing of exceptions. A KeyNotFoundException is thrown if the key is not found,
+        /// and an InvalidOperationException is thrown if the Args property is not a dictionary.</param>
+        /// <returns>The value associated with the specified enumeration key.</returns>
+        public object this[Enum stdKey, bool @throw = false]
+        {
+            get => this[stdKey.ToString()];
+            set => this[stdKey.ToString()] = value;
+        }
 
         /// <summary>
         /// Provides an enumerator for the Args property if it is an IEnumerable.
@@ -180,8 +204,28 @@ namespace IVSoftware.Portable.Threading
             return false;
         }
         public int Count => _dict.Count;
+        /// <summary>
+        /// Gets the collection of keys contained in the underlying dictionary.
+        /// </summary>
         public KeyCollection Keys => _dict.Keys;
+
+        /// <summary>
+        /// Gets the collection of values contained in the underlying dictionary.
+        /// </summary>
         public ValueCollection Values => _dict.Values;
+
+        /// <summary>
+        /// Determines whether the underlying dictionary contains a specific key.
+        /// </summary>
+        /// <param name="key">The key to locate in the dictionary.</param>
+        /// <returns>true if the dictionary contains an element with the specified key; otherwise, false.</returns>
         public bool ContainsKey(string key) => _dict.ContainsKey(key);
+
+        /// <summary>
+        /// Determines whether the underlying dictionary contains a specific key, using an enumeration value as the key.
+        /// </summary>
+        /// <param name="stdKey">The enumeration key to convert to string and locate in the dictionary.</param>
+        /// <returns>true if the dictionary contains an element with the specified key; otherwise, false.</returns>
+        public bool ContainsKey(Enum stdKey) => _dict.ContainsKey(stdKey.ToString());
     }
 }

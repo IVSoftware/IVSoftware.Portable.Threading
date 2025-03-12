@@ -36,6 +36,7 @@ namespace OnAwaited.MSTest
                     mockUT.ButtonClickMe.PerformClick();
                     await awaiter.WaitAsync();
                     stopwatch.Stop();
+                    Assert.IsNotNull(currentEvent);
                     switch (testResponse)
                     {
                         case TestResponse.Default:
@@ -52,8 +53,10 @@ namespace OnAwaited.MSTest
                             break;
                         case TestResponse.CollectionInitializer:
                             Assert.AreEqual(3, callbacks["ExecAsyncTask"], "Expecting Caller to match ");
-                            { }
-                            Assert.AreEqual(2, currentEvent?.Count);
+                            Assert.AreEqual(3, currentEvent.Count, "Expecting dictionary contains 3 KVPs");
+                            Assert.AreEqual(HELLO_WORLD, currentEvent["stringKey"], "Expecting dictionary value to match.");
+                            Assert.AreEqual(42, currentEvent["intKey"], "Expecting dictionary value to match.");
+                            Assert.AreEqual(TestResponse.CollectionInitializer, currentEvent["enumKey"], "Expecting dictionary value to match.");
                             break;
                         default: throw new NotImplementedException();
                     }
@@ -118,9 +121,9 @@ namespace OnAwaited.MSTest
                             break;
                         case TestResponse.CollectionInitializer:
                             this.OnAwaited(new AwaitedEventArgs {
-                                { "stringKey", "Hello World" },       // String value
-                                { "intKey", 42 },                     // Integer value
-                                { "objectKey", new { Name = "IVSoft", Version = 1.0 } }  // Anonymous object
+                                { "stringKey", HELLO_WORLD },                       // String value
+                                { "intKey", 42 },                                   // Integer value
+                                { "enumKey", TestResponse.CollectionInitializer }   // Enum Value 
                             });
                             break;
                         default:
