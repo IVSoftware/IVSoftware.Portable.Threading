@@ -7,18 +7,18 @@ namespace OnAwaited.MSTest
     public sealed class TestClass
     {
         const string 
+            EXEC = "ExecClick",
             ERROR = "ERROR", 
             HELLO_WORLD = "Hello World!",
             TYPE_NAME_ERROR = "UNEXPECTED: Type Name Error.";
 
         /// <summary>
-        /// This test is a demonstration of "awaiting the unawaitable" while
-        /// also 
+        /// This test is a demonstration of "awaiting the unawaitable" async void.
         /// </summary>
         [TestMethod]
-        public async Task MainTest()
+        public async Task AwaitAsynchronousVoid()
         {
-            var mockUT = new MockClassUnderTest();
+            var mockUT = new MockClassUnderTest { TestMode = TestMode.Asynchronous };
             var callbacks = new Dictionary<string, int>();
             var stopwatch = new Stopwatch();
             AwaitedEventArgs? currentEvent = null!;
@@ -40,7 +40,7 @@ namespace OnAwaited.MSTest
                     switch (testResponse)
                     {
                         case TestResponse.Default:
-                            Assert.AreEqual(1, callbacks["ExecAsyncTask"], "Expecting Caller to match ");
+                            Assert.AreEqual(1, callbacks[EXEC], "Expecting Caller to match ");
                             Assert.IsTrue(currentEvent?.Args is Dictionary<string, object>, "Expecting Args redirect to dict.");
                             break;
                         case TestResponse.HelloWorldError:
@@ -48,11 +48,11 @@ namespace OnAwaited.MSTest
                             Assert.AreEqual(currentEvent?.Args, HELLO_WORLD);
                             break;
                         case TestResponse.HelloWorldArgs:
-                            Assert.AreEqual(2, callbacks["ExecAsyncTask"], "Expecting Caller to match ");
+                            Assert.AreEqual(2, callbacks[EXEC], "Expecting Caller to match ");
                             Assert.AreEqual(currentEvent?.Args, HELLO_WORLD);
                             break;
                         case TestResponse.CollectionInitializer:
-                            Assert.AreEqual(3, callbacks["ExecAsyncTask"], "Expecting Caller to match ");
+                            Assert.AreEqual(3, callbacks[EXEC], "Expecting Caller to match ");
                             Assert.AreEqual(3, currentEvent.Count, "Expecting dictionary contains 3 KVPs");
                             Assert.AreEqual(HELLO_WORLD, currentEvent["stringKey"], "Expecting dictionary value to match.");
                             Assert.AreEqual(42, currentEvent["intKey"], "Expecting dictionary value to match.");
@@ -61,7 +61,7 @@ namespace OnAwaited.MSTest
                         default: throw new NotImplementedException();
                     }
                 }
-                Assert.AreEqual(0, callbacks[TYPE_NAME_ERROR], "Type name errors are categorically unexpected.");
+                Assert.IsFalse(callbacks.ContainsKey(TYPE_NAME_ERROR), "Type name errors are categorically unexpected.");
             }
             finally
             {
@@ -94,20 +94,41 @@ namespace OnAwaited.MSTest
             HelloWorldArgs,
             CollectionInitializer,
         }
+        enum TestMode 
+        {
+            Asynchronous,
+            Synchronous,
+        }
         class MockClassUnderTest
         {
             public TestResponse TestResponse { get; set; }
+            public TestMode TestMode { get; set; }
+            
             public MockButton ButtonClickMe { get; } = new MockButton
             {
                 Text = "Click Me",
             };
-            public MockClassUnderTest() => ButtonClickMe.Clicked += ExecAsyncTask;
+            public MockClassUnderTest() => ButtonClickMe.Clicked += ExecClick;
 
-            protected virtual void ExecAsyncTask(object? sender, EventArgs e)
+            protected virtual void ExecClick(object? sender, EventArgs e)
             {
-                Task.Run(async () =>
+                switch (TestMode)
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(1.1));
+                    case TestMode.Asynchronous:
+                        Task.Run(async () =>
+                        {
+                            await Task.Delay(TimeSpan.FromSeconds(1.1));
+                            localExecClick();
+                        });
+                        break;
+                    case TestMode.Synchronous:
+                        localExecClick();
+                        break;
+                    default: throw new NotImplementedException();
+                }
+
+                void localExecClick()
+                {
                     switch (TestResponse)
                     {
                         case TestResponse.Default:
@@ -129,7 +150,7 @@ namespace OnAwaited.MSTest
                         default:
                             throw new NotImplementedException();
                     }
-                });
+                }
             }
         }
         class MockButton
