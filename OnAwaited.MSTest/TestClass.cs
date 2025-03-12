@@ -87,6 +87,74 @@ namespace OnAwaited.MSTest
             }
         }
 
+
+
+        /// <summary>
+        /// This test is a demonstration of "awaiting the unawaitable" async void.
+        /// </summary>
+        [TestMethod]
+        public void SynchronousEventCounting()
+        {
+            var mockUT = new MockClassUnderTest { TestMode = TestMode.Synchronous };
+            var callbacks = new Dictionary<string, int>();
+            var stopwatch = new Stopwatch();
+            AwaitedEventArgs? currentEvent = null!;
+            try
+            {
+                Extensions.Awaited += localOnAwaited;
+
+                foreach (var testResponse in Enum.GetValues<TestResponse>())
+                {
+                    mockUT.TestResponse = testResponse; // Setup.
+                    mockUT.ButtonClickMe.PerformClick();
+                    stopwatch.Stop();
+                    Assert.IsNotNull(currentEvent);
+                    switch (testResponse)
+                    {
+                        case TestResponse.Default:
+                            Assert.AreEqual(1, callbacks[EXEC], "Expecting Caller to match ");
+                            Assert.IsTrue(currentEvent?.Args is Dictionary<string, object>, "Expecting Args redirect to dict.");
+                            break;
+                        case TestResponse.HelloWorldError:
+                            Assert.AreEqual(1, callbacks[ERROR], "Expecting this call produces Caller error.");
+                            Assert.AreEqual(currentEvent?.Args, HELLO_WORLD);
+                            break;
+                        case TestResponse.HelloWorldArgs:
+                            Assert.AreEqual(2, callbacks[EXEC], "Expecting Caller to match ");
+                            Assert.AreEqual(currentEvent?.Args, HELLO_WORLD);
+                            break;
+                        case TestResponse.CollectionInitializer:
+                            Assert.AreEqual(3, callbacks[EXEC], "Expecting Caller to match ");
+                            Assert.AreEqual(3, currentEvent.Count, "Expecting dictionary contains 3 KVPs");
+                            Assert.AreEqual(HELLO_WORLD, currentEvent["stringKey"], "Expecting dictionary value to match.");
+                            Assert.AreEqual(42, currentEvent["intKey"], "Expecting dictionary value to match.");
+                            Assert.AreEqual(TestResponse.CollectionInitializer, currentEvent["enumKey"], "Expecting dictionary value to match.");
+                            break;
+                        default: throw new NotImplementedException();
+                    }
+                }
+                Assert.IsFalse(callbacks.ContainsKey(TYPE_NAME_ERROR), "Type name errors are categorically unexpected.");
+            }
+            finally
+            {
+                Extensions.Awaited -= localOnAwaited;
+            }
+
+            void localOnAwaited(object? sender, AwaitedEventArgs e)
+            {
+                currentEvent = e;
+                callbacks.Increment(e.Args.GetType().FullName ?? TYPE_NAME_ERROR);
+                switch (e.Caller)
+                {
+                    case string s when s.StartsWith(ERROR):
+                        callbacks.Increment(ERROR);
+                        break;
+                    default:
+                        callbacks.Increment(e.Caller);
+                        break;
+                }
+            }
+        }
         enum TestResponse
         {
             Default,
