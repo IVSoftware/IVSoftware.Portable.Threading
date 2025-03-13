@@ -1,4 +1,4 @@
-This NuGet package provides a minimalist solution Design for Testability (DFT). It provides the lightweight `OnAwaited(...)`extension for `object`. The core concept is that calls to `OnAwaited(..)` only occur when there is a listener for the `AwaitedEvent`. In the absence of any listener (e.g. in a production Release version) this hook does nothing. As such benign entities, these conditional calls are intended to be sprinkled throughout the application under test.
+This NuGet package offers a minimalist Design for Testability (DFT) solution. It features the lightweight `OnAwaited(...)` extension for `object`. A key feature of this design is that calls to `OnAwaited(..)` only activate when there are active subscribers to the static `AwaitedEvent`. These subscribers are typically ephemeral, existing ad hoc only for the duration of a single test. In environments like production releases where no subscribers are present, these hooks effectively do nothing, ensuring they remain benign. This allows for these conditional calls to be sprinkled throughout the application under test without impacting performance or behavior in production.
 
 ```csharp
 using IVSoftware.Portable.Threading;
@@ -13,7 +13,7 @@ ___
 
 The power of this deceptively simple approach stems from features of the design:
 
-**First,** listeners for the `Awaited` event are ephemeral, typically existing only for the duration of a single test.
+**First:** Listeners for the `Awaited` event are ephemeral, typically existing only for the duration of a single test.
 
 ```csharp
 using IVSoftware.Portable.Threading;
@@ -45,9 +45,9 @@ public async Task AwaitAsyncVoid()
 }
 ```
 
-**Second,** the `sender` argument is `this`, which means that any public properties of the invoking class are available to MSTest for evaluation.
+**Second:** The `sender` argument is `this`, which means that any public properties of the invoking class are available to MSTest for evaluation.
 
-**Third,** supporting information, for example private data fields or threading syncrhonization contexts, can be transmitted by populating an `AwaitedEventArgs` instance. One way to initialize the dictionary capability of this event args class is to populate it using a collection initializer in the same way as any other dictionary could be:
+**Third:** Supporting information, for example private data fields or threading syncrhonization contexts, can be transmitted by populating an `AwaitedEventArgs` instance. One way to initialize the dictionary capability of this event args class is to populate it using a collection initializer in the same way as any other dictionary could be:
 
 ##### Using String Keys
 
@@ -83,106 +83,11 @@ public void MethodUnderTest()
 }
 ```
 
-**Finally,** even in a parallel test execution environment, the `AwaitedEventArgs` can be filtered for sender, caller, and identifying values in its dictionary payload to determine whether _this event_ is the specific _event we're awaiting_ (or not) and if so, release the awaited and proceed with the test.
+**Finally:** Even in a parallel test execution environment, the `AwaitedEventArgs` can be filtered for sender, caller, and identifying values in its dictionary payload to determine whether _this event_ is the specific _event we're awaiting_ (or not) and if so, release the awaited and proceed with the test.
 
 ___
 
-**Awaiting the Unawaitable**
-
-This concept pertains to the testing of asynchronous methods that do not return a `Task`, making them difficult to await using conventional asynchronous testing strategies. This package provides mechanisms to effectively handle and test these scenarios.
-
-### Usage Example
-
-Below is a simplified class that demonstrates how to use the NuGet package to test asynchronous and synchronous event-driven UI interactions:
-
-```csharp
-class MockClassUnderTest
-{
-    public TestResponse TestResponse { get; set; }
-    public TestMode TestMode { get; set; }
-    
-    public MockButton ButtonClickMe { get; } = new MockButton
-    {
-        Text = "Click Me",
-    };
-
-    public MockClassUnderTest() => ButtonClickMe.Clicked += ExecClick;
-
-    protected virtual void ExecClick(object? sender, EventArgs e)
-    {
-        if (TestMode == TestMode.Asynchronous)
-        {
-            Task.Run(async () =>
-            {
-                await Task.Delay(TimeSpan.FromSeconds(1.1));
-                this.OnAwaited();
-            });
-        }
-        else
-        {
-            this.OnAwaited();
-        }
-    }
-}
-
-class MockButton
-{
-    public event EventHandler? Clicked;
-    public void PerformClick() => Clicked?.Invoke(this, EventArgs.Empty);
-}
-```
-
-### Test Implementation
-
-In MSTest, a named local function is declared to safely subscribe and unsubscribe to the `Awaited` event for the duration of the test.
-
-```csharp
-using IVSoftware.Portable.Threading;
-using static IVSoftware.Portable.Threading.Extensions;
-
-[TestMethod]
-public async Task AwaitAsynchronousVoid()
-{
-    var mockUT = new MockClassUnderTest { TestMode = TestMode.Asynchronous };
-    var callbacks = new Dictionary<string, int>();
-    var awaiter = new SemaphoreSlim(1, 1);
-
-    void localOnAwaited(object? sender, AwaitedEventArgs e)
-    {
-        callbacks.Increment(e.Caller);
-        awaiter.Release(); // Ensure to release after handling to continue the test execution.
-    }
-
-    try
-    {
-        Awaited += localOnAwaited;
-        mockUT.ButtonClickMe.PerformClick();
-        await awaiter.WaitAsync(TimeSpan.FromSeconds(2)); // Adjust as needed based on expected delay
-        Assert.IsTrue(callbacks.ContainsKey("ExecClick"), "ExecClick was not called.");
-    }
-    finally
-    {
-        Awaited -= localOnAwaited; // Unsubscribe using the same instance of the delegate.
-    }
-}
-```
-
-_Where `Increment(key)` is an Extension Method for Dictionary<string, object>_
-
-```csharp
-public static partial class TestExtensions
-{
-    public static int Increment(this Dictionary<string, int> @this, string key)
-    {
-        if (string.IsNullOrWhiteSpace(key))
-            throw new ArgumentException($"The {nameof(key)} argument cannot be null or empty");
-        if (@this.TryGetValue(key, out var value)) value++;
-        else value = 1;
-        @this[key] = value;
-        return value;
-    }
-}
-```
+_COMPLETE REFERENCE EXAMPLES ARE SHOWN BELOW, AFTER THE QUICK-START SECTION. [Skip to Examples](#examples-for-reference)_
 ___
 
 **Quick Start Guide for AwaitedEventArgs**
@@ -326,5 +231,273 @@ ___
 
 ## Examples for Reference
 
-This section show
+The examples below cover two common use cases.
+
+1. **Awaiting the Unawaitable** shows how to use a test hook to await an `async void` method for testing.
+2. **Synchonous event counting** shows a non-awaited evaluation of expected received events when the timing is deterministic.
+
+___
+
+#### Mock Class Under Test
+
+```
+[TestClass]
+public sealed class TestClass
+{
+    const string 
+        EXEC = "ExecClick",
+        ERROR = "ERROR", 
+        HELLO_WORLD = "Hello World!",
+        TYPE_NAME_ERROR = "UNEXPECTED: Type Name Error.";
+        
+    enum TestResponse
+    {
+        Default,
+        HelloWorldError,
+        HelloWorldArgs,
+        CollectionInitializer,
+    }
+    enum TestMode 
+    {
+        Asynchronous,
+        Synchronous,
+    }
+    class MockClassUnderTest
+    {
+        public TestResponse TestResponse { get; set; }
+        public TestMode TestMode { get; set; }
+            
+        public MockButton ButtonClickMe { get; } = new MockButton
+        {
+            Text = "Click Me",
+        };
+        public MockClassUnderTest() => ButtonClickMe.Clicked += ExecClick;
+
+        protected virtual void ExecClick(object? sender, EventArgs e)
+        {
+            switch (TestMode)
+            {
+                case TestMode.Asynchronous:
+                    Task.Run(async () =>
+                    {
+                        await Task.Delay(TimeSpan.FromSeconds(1.1));
+                        localExecClick();
+                    });
+                    break;
+                case TestMode.Synchronous:
+                    localExecClick();
+                    break;
+                default: throw new NotImplementedException();
+            }
+
+            void localExecClick()
+            {
+                switch (TestResponse)
+                {
+                    case TestResponse.Default:
+                        this.OnAwaited();
+                        break;
+                    case TestResponse.HelloWorldError:
+                        this.OnAwaited(new AwaitedEventArgs(HELLO_WORLD));
+                        break;
+                    case TestResponse.HelloWorldArgs:
+                        this.OnAwaited(new AwaitedEventArgs(args: HELLO_WORLD));
+                        break;
+                    case TestResponse.CollectionInitializer:
+                        this.OnAwaited(new AwaitedEventArgs {
+                            { "stringKey", HELLO_WORLD },                       // String value
+                            { "intKey", 42 },                                   // Integer value
+                            { "enumKey", TestResponse.CollectionInitializer }   // Enum Value 
+                        });
+                        break;
+                    default:
+                        throw new NotImplementedException();
+                }
+            }
+        }
+    }
+    class MockButton
+    {
+        public string Text { get; set; } = string.Empty;
+        public void PerformClick() => Clicked?.Invoke(this, EventArgs.Empty);
+        public event EventHandler? Clicked;
+    }
+}
+```
+___
+**Awaiting the Unawaitable**
+
+This concept pertains to the testing of asynchronous methods that do not return a `Task`, making them difficult to await using conventional asynchronous testing strategies. 
+
+
+```
+/// <summary>
+/// This test is a demonstration of "awaiting the unawaitable" async void.
+/// </summary>
+[TestMethod]
+public async Task AwaitAsyncVoid()
+{
+    var mockUT = new MockClassUnderTest { TestMode = TestMode.Asynchronous };
+    var callbacks = new Dictionary<string, int>();
+    var stopwatch = new Stopwatch();
+    AwaitedEventArgs? currentEvent = null!;
+    SemaphoreSlim awaiter = new SemaphoreSlim(1, 1);
+    try
+    {
+        Awaited += localOnAwaited;
+
+        foreach (var testResponse in Enum.GetValues<TestResponse>())
+        {
+            mockUT.TestResponse = testResponse; // Setup.
+
+            awaiter.Wait(0);
+            stopwatch.Restart();
+            mockUT.ButtonClickMe.PerformClick();
+            await awaiter.WaitAsync();
+            stopwatch.Stop();
+            Assert.IsNotNull(currentEvent);
+            switch (testResponse)
+            {
+                case TestResponse.Default:
+                    Assert.AreEqual(1, callbacks[EXEC], "Expecting Caller to match ");
+                    Assert.IsTrue(currentEvent?.Args is Dictionary<string, object>, "Expecting Args redirect to dict.");
+                    break;
+                case TestResponse.HelloWorldError:
+                    Assert.AreEqual(1, callbacks[ERROR], "Expecting this call produces Caller error.");
+                    Assert.AreEqual(currentEvent?.Args, HELLO_WORLD);
+                    break;
+                case TestResponse.HelloWorldArgs:
+                    Assert.AreEqual(2, callbacks[EXEC], "Expecting Caller to match ");
+                    Assert.AreEqual(currentEvent?.Args, HELLO_WORLD);
+                    break;
+                case TestResponse.CollectionInitializer:
+                    Assert.AreEqual(3, callbacks[EXEC], "Expecting Caller to match ");
+                    Assert.AreEqual(3, currentEvent.Count, "Expecting dictionary contains 3 KVPs");
+                    Assert.AreEqual(HELLO_WORLD, currentEvent["stringKey"], "Expecting dictionary value to match.");
+                    Assert.AreEqual(42, currentEvent["intKey"], "Expecting dictionary value to match.");
+                    Assert.AreEqual(TestResponse.CollectionInitializer, currentEvent["enumKey"], "Expecting dictionary value to match.");
+                    break;
+                default: throw new NotImplementedException();
+            }
+        }
+        Assert.IsFalse(callbacks.ContainsKey(TYPE_NAME_ERROR), "Type name errors are categorically unexpected.");
+    }
+    finally
+    {
+        Awaited -= localOnAwaited;
+        awaiter.Wait(0);
+        awaiter.Release();
+    }
+    void localOnAwaited(object? sender, AwaitedEventArgs e)
+    {
+        currentEvent = e;
+        callbacks.Increment(e.Args.GetType().FullName ?? TYPE_NAME_ERROR);
+        switch(e.Caller)
+        {
+            case string s when s.StartsWith(ERROR):
+                callbacks.Increment(ERROR);
+                break;
+            default:
+                callbacks.Increment(e.Caller);
+                break;
+        }
+        awaiter.Release();
+    }
+}
+```
+___
+
+**Synchronous event counting**
+
+This concept pertains to discrete event counting, for example the number of times a clling method has been invoked in a given test flow. 
+
+```
+/// <summary>
+/// This test is a demonstration of counting synchronous events.
+/// </summary>
+[TestMethod]
+public void SynchronousEventCounting()
+{
+    var mockUT = new MockClassUnderTest { TestMode = TestMode.Synchronous };
+    var callbacks = new Dictionary<string, int>();
+    var stopwatch = new Stopwatch();
+    AwaitedEventArgs? currentEvent = null!;
+    try
+    {
+        Awaited += localOnAwaited;
+
+        foreach (var testResponse in Enum.GetValues<TestResponse>())
+        {
+            mockUT.TestResponse = testResponse; // Setup.
+            mockUT.ButtonClickMe.PerformClick();
+            stopwatch.Stop();
+            Assert.IsNotNull(currentEvent);
+            switch (testResponse)
+            {
+                case TestResponse.Default:
+                    Assert.AreEqual(1, callbacks[EXEC], "Expecting Caller to match ");
+                    Assert.IsTrue(currentEvent?.Args is Dictionary<string, object>, "Expecting Args redirect to dict.");
+                    break;
+                case TestResponse.HelloWorldError:
+                    Assert.AreEqual(1, callbacks[ERROR], "Expecting this call produces Caller error.");
+                    Assert.AreEqual(currentEvent?.Args, HELLO_WORLD);
+                    break;
+                case TestResponse.HelloWorldArgs:
+                    Assert.AreEqual(2, callbacks[EXEC], "Expecting Caller to match ");
+                    Assert.AreEqual(currentEvent?.Args, HELLO_WORLD);
+                    break;
+                case TestResponse.CollectionInitializer:
+                    Assert.AreEqual(3, callbacks[EXEC], "Expecting Caller to match ");
+                    Assert.AreEqual(3, currentEvent.Count, "Expecting dictionary contains 3 KVPs");
+                    Assert.AreEqual(HELLO_WORLD, currentEvent["stringKey"], "Expecting dictionary value to match.");
+                    Assert.AreEqual(42, currentEvent["intKey"], "Expecting dictionary value to match.");
+                    Assert.AreEqual(TestResponse.CollectionInitializer, currentEvent["enumKey"], "Expecting dictionary value to match.");
+                    break;
+                default: throw new NotImplementedException();
+            }
+        }
+        Assert.IsFalse(callbacks.ContainsKey(TYPE_NAME_ERROR), "Type name errors are categorically unexpected.");
+    }
+    finally
+    {
+        Awaited -= localOnAwaited;
+    }
+
+    void localOnAwaited(object? sender, AwaitedEventArgs e)
+    {
+        currentEvent = e;
+        callbacks.Increment(e.Args.GetType().FullName ?? TYPE_NAME_ERROR);
+        switch (e.Caller)
+        {
+            case string s when s.StartsWith(ERROR):
+                callbacks.Increment(ERROR);
+                break;
+            default:
+                callbacks.Increment(e.Caller);
+                break;
+        }
+    }
+}
+```
+
+___
+
+**Utility Dictionary Incrementing Extension Method**
+
+Safely increments a key, whether it already exists or not.
+
+```
+public static partial class TestExtensions
+{
+    public static int Increment(this Dictionary<string, int> @this, string key)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+            throw new ArgumentException($"The {nameof(key)} argument cannot be null or empty");
+        if (@this.TryGetValue(key, out var value)) value++;
+        else value = 1;
+        @this[key] = value;
+        return value;
+    }
+}
+```
 
