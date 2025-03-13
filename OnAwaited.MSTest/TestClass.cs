@@ -17,7 +17,7 @@ namespace OnAwaited.MSTest
         /// This test is a demonstration of "awaiting the unawaitable" async void.
         /// </summary>
         [TestMethod]
-        public async Task AwaitAsynchronousVoid()
+        public async Task AwaitAsyncVoid()
         {
             var mockUT = new MockClassUnderTest { TestMode = TestMode.Asynchronous };
             var callbacks = new Dictionary<string, int>();
@@ -88,10 +88,8 @@ namespace OnAwaited.MSTest
             }
         }
 
-
-
         /// <summary>
-        /// This test is a demonstration of "awaiting the unawaitable" async void.
+        /// This test is a demonstration of counting synchronous events.
         /// </summary>
         [TestMethod]
         public void SynchronousEventCounting()
@@ -102,7 +100,7 @@ namespace OnAwaited.MSTest
             AwaitedEventArgs? currentEvent = null!;
             try
             {
-                Extensions.Awaited += localOnAwaited;
+                Awaited += localOnAwaited;
 
                 foreach (var testResponse in Enum.GetValues<TestResponse>())
                 {
@@ -138,7 +136,7 @@ namespace OnAwaited.MSTest
             }
             finally
             {
-                Extensions.Awaited -= localOnAwaited;
+                Awaited -= localOnAwaited;
             }
 
             void localOnAwaited(object? sender, AwaitedEventArgs e)

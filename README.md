@@ -1,14 +1,89 @@
-This NuGet package provides a highly focused, lightweight solution for testing UI interactions in .NET applications, suitable for both asynchronous and synchronous environments such as WPF or WinForms. It simplifies the testing of async void methods and also supports the transmittal of ad hoc test contexts that are not specifically related to asynchronous operations. The package offers a minimalistic approach that integrates seamlessly with MSTest, helping to manage the complexities typically associated with UI tests by enabling a structured way to capture and analyze method invocations and their contexts within your test suites.
+This NuGet package provides a minimalist solution Design for Testability (DFT). It provides the lightweight `OnAwaited(...)`extension for `object`. The core concept is that calls to `OnAwaited(..)` only occur when there is a listener for the `AwaitedEvent`. In the absence of any listener (e.g. in a production Release version) this hook does nothing. As such benign entities, these conditional calls are intended to be sprinkled throughout the application under test.
 
-Evaluating asynchronous UI interactions in something like a WPF or Winforms app is often complex and fraught with challenges. These tests might involve stimuli that are either test-driven or interactively user-driven. They may also require monitoring for changes in typically synchronous methods like OnPropertyChanged, or tracking updates in a continuously running polling loop.
+```csharp
+using IVSoftware.Portable.Threading;
 
-__
-## Features
+public void MethodUnderTest()
+{
+    // Raises `Awaited` with sender=this and e.Caller="MethodUnderTest".
+    this.OnAwaited();
+}
+```
+___
 
-- **Simplified Testing of Async Operations**: Even `async void` methods can be awaited by inserting an uncomplicated test hook, simplifying the handling of asynchronous behavior in tests.
-- **Integration with MSTest**: Designed to work seamlessly with Microsoft's testing framework, ensuring compatibility and ease of use.
-- **Lightweight and Focused**: Referencing this NuGet results in a negligible footprint and creates no other dependencies, maintaining the integrity of your project's dependency graph.
-- **Also supports synchronous transmittal of Test Contexts**: Facilitates the passing of contextual information within tests.
+The power of this deceptively simple approach stems from features of the design:
+
+**First,** listeners for the `Awaited` event are ephemeral, typically existing only for the duration of a single test.
+
+```csharp
+using IVSoftware.Portable.Threading;
+using static IVSoftware.Portable.Threading.Extensions;
+
+[TestMethod]
+public async Task AwaitAsyncVoid()
+{
+    var awaiter = new SemaphoreSlim(1, 1);
+    try
+    {
+        Awaited += localOnAwaited;
+
+        // The "Fire and Forget" stumulus of the app under test goes here.
+
+        await awaiter.WaitAsync(TimeSpan.FromSeconds(2)); // Adjust as needed based on expected delay
+    }
+    finally
+    {
+        Awaited -= localOnAwaited; // Unsubscribe using the same instance of the delegate.
+    }
+
+    void localOnAwaited(object? sender, AwaitedEventArgs e)
+    {
+        // If conditions are met, the awaiter is released and the
+        // unit test is evaluated by inspecting the event payload. 
+        awaiter.Release(); // Ensure to release after handling to continue the test execution.
+    }
+}
+```
+
+**Second,** the `sender` argument is `this`, which means that any public properties of the invoking class are available to MSTest for evaluation.
+
+**Third,** supporting information, for example private data fields or threading syncrhonization contexts, can be transmitted by populating an `AwaitedEventArgs` instance. One way to initialize the dictionary capability of this event args class is to populate it using a collection initializer in the same way as any other dictionary could be:
+
+##### Using String Keys
+
+This example demonstrates how to populate `AwaitedEventArgs` with string keys:
+
+```csharp
+using IVSoftware.Portable.Threading;
+
+public void MethodUnderTest()
+{
+    this.OnAwaited(new AwaitedEventArgs
+    {
+        {"Key1", "Value1"},
+        {"Key2", 100}
+    });
+}
+```
+___
+##### Using a User-Defined Enumeration as a Standard Key
+
+Enumeration values used as keys will be converted to string keys. This approach enhances code readability and consistency:
+
+```csharp
+using IVSoftware.Portable.Threading;
+
+public void MethodUnderTest()
+{
+    this.OnAwaited(new AwaitedEventArgs
+    {
+        {"StdKey.Key1", "Value1"},
+        {"Std.Key2", 100}
+    });
+}
+```
+
+**Finally,** even in a parallel test execution environment, the `AwaitedEventArgs` can be filtered for sender, caller, and identifying values in its dictionary payload to determine whether _this event_ is the specific _event we're awaiting_ (or not) and if so, release the awaited and proceed with the test.
 
 ___
 
@@ -248,4 +323,8 @@ To maximize the benefits of `AwaitedEventArgs` in parallel testing:
 `AwaitedEventArgs` is not just compatible with parallel testing—it is optimized for it, providing a solid foundation for building reliable, scalable, and effective test suites.
 
 ___
+
+## Examples for Reference
+
+This section show
 
