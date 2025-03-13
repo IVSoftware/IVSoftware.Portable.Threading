@@ -52,7 +52,7 @@ namespace MSTest.Async.Demo
         public void TestInitialize()
         {
             PromptInUI(
-                $"{Environment.NewLine}Starting test: {TestContext.TestName}",
+                $"{Environment.NewLine}Starting test: {TestContext?.TestName}",
                 Color.Maroon);
         }
 
@@ -136,7 +136,7 @@ namespace MSTest.Async.Demo
             }
 
             #region L o c a l M e t h o d s
-            void localOnAwaited(object sender, AwaitedEventArgs e)
+            void localOnAwaited(object? sender, AwaitedEventArgs e)
             {
                 // Listen for OnAwaited events now invoked within the fire-and-forget tasks
                 switch (e.Caller)
@@ -273,7 +273,7 @@ namespace MSTest.Async.Demo
     }
     public class UnitTestSourceAttribute : Attribute
     {
-        public UnitTestSourceAttribute(string uid, string[] coverages = null)
+        public UnitTestSourceAttribute(string uid, string[]? coverages = null)
         {
             this.uid = uid;
             this.coverages = coverages ?? new string[0];

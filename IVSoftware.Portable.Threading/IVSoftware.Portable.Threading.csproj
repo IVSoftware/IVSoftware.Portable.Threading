@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<Title>IVSoftware.Portable.Threading</Title>
-		<Description>Provides an awaitable hook for non-awaitable flows.</Description>
+		<Description>Design for Testability (DFT) solution featuring an awaitable hook for non-awaitable flows.</Description>
 		<PackageTags>portable;net;android;ios;mstest;unittest;design-for-testability;dft</PackageTags>
 		<RepositoryUrl>https://github.com/IVSoftware/IVSoftware.Portable.Threading.git</RepositoryUrl>
 		<PackageProjectUrl>https://www.nuget.org/packages/IVSoftware.Portable.Threading</PackageProjectUrl>
