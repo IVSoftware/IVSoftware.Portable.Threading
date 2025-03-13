@@ -2,7 +2,7 @@
 	<PropertyGroup>
 		<Title>IVSoftware.Portable.Threading</Title>
 		<Description>Provides an awaitable hook for non-awaitable flows.</Description>
-		<PackageTags>portable;net;android;ios;mstest;unittest</PackageTags>
+		<PackageTags>portable;net;android;ios;mstest;unittest;design-for-testability;dft</PackageTags>
 		<RepositoryUrl>https://github.com/IVSoftware/IVSoftware.Portable.Threading.git</RepositoryUrl>
 		<PackageProjectUrl>https://www.nuget.org/packages/IVSoftware.Portable.Threading</PackageProjectUrl>
 		<RootNamespace>IVSoftware.Portable.Threading</RootNamespace>
@@ -10,7 +10,7 @@
 		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
 		<Authors>IVSoftware, Thomas C. Gregor</Authors>
 		<Owner>IVSoftware LLC</Owner>
-		<Copyright>Copyright © 2023 IVSoftware LLC</Copyright>
+		<Copyright>Copyright © 2023-2025 IVSoftware LLC</Copyright>
 		<FileVersion>$(AssemblyVersion)</FileVersion>
 		<Version>$(AssemblyVersion)</Version>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
@@ -24,6 +24,9 @@
 		<PackageReleaseNotes>
 			- OnAwaited can now be called without args.
 			- AwaitedEventArgs can now use Collection Initializer syntax.
+			- Dictionary support of AwaitedEventArgs is independent.
+			- This facilitates using the Args property as a shortcut without disabling the dictionary.
+			- The [CallerMemberName] is now VALIDATED to detect calls intended to be args: someString.
 		</PackageReleaseNotes>
 	</PropertyGroup>
 	<ItemGroup>
