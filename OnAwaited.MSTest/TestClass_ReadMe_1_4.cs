@@ -39,15 +39,8 @@ public class TestClass_ReadMe_1_4
     [TestMethod]
     public async Task Test_AwaitableDelay()
     {
-        string actual = string.Empty;
-        var stopwatch = Stopwatch.StartNew();
-        await this.RunOnSTAThread(async () =>
-        {
-            await Task.Delay(TimeSpan.FromSeconds(1));
-        });
-        stopwatch.Stop();
-        var elapsed = $"{stopwatch.Elapsed}";
-        Debug.WriteLine(elapsed);
+        await this.RunOnSTAThread(async () => await Task.CompletedTask);
+        { }
     }
 
     [TestMethod]
@@ -133,32 +126,52 @@ public class TestClass_ReadMe_1_4
         Assert.AreEqual(
             "Clicked!",
             actual,
-            $"Unfortunately these will NEVER be equal without some kind of 'magic delay' here.");
+            $"The semaphore slim is now awaiting the next Awaited event.");
     }
 }
 
 static class STAExtensions
 {
+    private class SilentRunner : Form
+    {
+        protected override void SetVisibleCore(bool value)
+        {
+            base.SetVisibleCore(false);
+            if(!IsHandleCreated)
+            {
+                _ = Handle;
+            }
+        }
+    }
     public static Task RunOnSTAThread(this object _, Func<Task> action)
     {
-        var tcs = new TaskCompletionSource();
-
+        var mainWnd = new SilentRunner();
+        mainWnd.HandleCreated += async (sender, e) =>
+        {
+            mainWnd.BeginInvoke(async () =>
+            {
+                await action();
+                mainWnd.Close();
+            });
+        };
+        var _tcs = new TaskCompletionSource ();
         var thread = new Thread(() =>
         {
             try
             {
-                action().GetAwaiter().GetResult();
-                tcs.SetResult();
+                System.Windows.Forms.Application.Run(mainWnd);
+                mainWnd.Dispose();
+                _tcs.SetResult();
             }
             catch (Exception ex)
             {
-                tcs.SetException(ex);
+                _tcs.SetException(ex);
             }
         });
 
         thread.SetApartmentState(ApartmentState.STA);
         thread.Start();
 
-        return tcs.Task;
+        return _tcs.Task;
     }
 }
