@@ -19,25 +19,27 @@ This version is tame only because we can at least estimate the worst-case delay.
 [TestMethod]
 public async Task Test_UnawaitableBefore()
 {
-    string actual = string.Empty;
-    Random rando = new Random(); // An unseeded random.
-
-    System.Windows.Forms.Button btn = new();
-    btn.Click += localOnButtonClicked;
-
-    // This is an EventHandler delegate, and returning Task is not an option.
-    async void localOnButtonClicked(object? sender, EventArgs e)
+    await this.RunOnSTAThread(async () =>
     {
-        // We can only estimate how long this will take.
-        await Task.Delay(TimeSpan.FromSeconds(0.5 + rando.NextDouble()));
-        actual = "Clicked!";
-    }
+        string actual = string.Empty;
+        Random rando = new Random(); // An unseeded random.
 
-    btn.PerformClick();
+        System.Windows.Forms.Button btn = new();
+        btn.Click += localOnButtonClicked;
 
-    // So we put in a magic delay and hope.
-    await Task.Delay(TimeSpan.FromSeconds(1));
-    Assert.AreEqual("Clicked", actual); // Expected to fail sporadically because timing is guesswork.
+        // This is an EventHandler delegate, and returning Task is not an option.
+        async void localOnButtonClicked(object? sender, EventArgs e)
+        {
+            // We can only estimate how long this will take.
+            await Task.Delay(TimeSpan.FromSeconds(0.5 + rando.NextDouble()));
+            actual = "Clicked!";
+        }
+        btn.PerformClick();
+
+        // So we put in a magic delay and hope.
+        await Task.Delay(TimeSpan.FromSeconds(1));
+        Assert.AreEqual("Clicked", actual);
+    });
 }
 ```
 ___
