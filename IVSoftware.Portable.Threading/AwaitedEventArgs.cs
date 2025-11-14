@@ -8,36 +8,74 @@ using static System.Collections.Generic.Dictionary<string, object>;
 
 namespace IVSoftware.Portable.Threading
 {
-    public static partial class Extensions
-    {
-        /// <summary>
-        /// Raises the Awaited event, automatically passing the caller's name as part of the event arguments.
-        /// If the event arguments are not provided, a new instance of AwaitedEventArgs is created with the caller's name.
-        /// </summary>
-        /// <param name="sender">The source of the event.</param>
-        /// <param name="e">The event data. If null, a new instance with the caller's name is created.</param>
-        /// <param name="caller">Automatically captured name of the method or property that calls this method.</param>
-
-        public static void OnAwaited(
-            this object sender, 
-            AwaitedEventArgs e = null,
-            [CallerMemberName] string caller = null)
-        {
-            // Caller is inferred...
-            Awaited?.Invoke(
-                sender, 
-                e ??                            // ...from the block that instantiates AwaitedEventArgs
-                new AwaitedEventArgs(caller));  // ...from the block that calls OnAwaited() 
-        }
-        public static event EventHandler<AwaitedEventArgs> Awaited;
-    }
-
-#if false
     /// <summary>
     /// Represents event data that, by default, behaves like a dictionary but can be overridden by the user with any type of object.
     /// </summary>
     public class AwaitedEventArgs : EventArgs, IEnumerable
     {
+        /// <summary>
+        /// Constructs a new instance of AwaitedEventArgs, defaulting to use a dictionary for storing event data.
+        /// </summary>
+        /// <param name="caller">The name of the method that instantiated the object, automatically captured.</param>
+        public AwaitedEventArgs([CallerMemberName] string caller = null)
+        {
+            if (caller is null)
+            {
+                _args = null;
+                Caller = null;
+                return;
+            }
+
+#if false
+            // Detects a leading and trailing quote and strips exactly one layer.
+            var trimmed = caller.Trim();
+            if (false && caller.Length >= 2 &&
+                trimmed.StartsWith(@"""") &&
+                trimmed.EndsWith(@""""))
+            {
+                // Remove the outer quotes. The inner content is authoritative.
+                var literal = caller.Substring(1, caller.Length - 2);
+                _args = null;
+                Caller = literal;
+                return;
+            }
+            else
+            {
+            }
+#endif
+            // Case 2: Identifier-like caller.
+            bool containsIllegal =
+                    caller.Any(ch => !(char.IsLetterOrDigit(ch) || ch == '_'));
+
+            if (containsIllegal)
+            {
+                _args = caller;
+                Caller = "ERROR: Try disambiguating call by specifying 'args: " + caller + "'";
+            }
+            else
+            {
+                _args = null;
+                Caller = caller;
+            }
+        }
+
+
+#if false
+        public AwaitedEventArgs([CallerMemberName] string caller = null)
+        {
+            if (caller is string s && !Regex.IsMatch(s, @"^[a-zA-Z_][a-zA-Z0-9_]*$"))
+            {
+                _args = caller;
+                Caller = $"ERROR: Try disambiguating call by specifying 'args: {caller}'";
+            }
+            else
+            {
+                _args = null; // This means that Args returns Dictionary<string, object> !!
+                Caller = caller;
+            }
+        }
+#endif
+
         /// <summary>
         /// By default, this object behaves like a dictionary, storing key-value pairs.
         /// </summary>
@@ -54,37 +92,12 @@ namespace IVSoftware.Portable.Threading
         public string Caller { get; }
 
         /// <summary>
-        /// Constructs a new instance of AwaitedEventArgs, defaulting to use a dictionary for storing event data.
-        /// </summary>
-        /// <param name="caller">The name of the method that instantiated the object, automatically captured.</param>
-        public AwaitedEventArgs([CallerMemberName] string caller = null)
-        {
-            if (caller is string s && !Regex.IsMatch(s, @"^[a-zA-Z_][a-zA-Z0-9_]*$"))
-            {
-                _args = caller;
-                // Chances are, we were thinking we'de set args quick and dirty as
-                Caller = $"ERROR: Try disambiguating call by specifying 'args: {caller}'";
-            }
-            else
-            {
-                _args = null; // This means that Args returns Dictionary<string, object> !!
-                Caller = caller;
-            }
-        }
-
-        /// <summary>
         /// Constructs a new instance of AwaitedEventArgs, allowing for the Args property to be set with a custom object.
         /// </summary>
         /// <param name="args">Overrides the default Dictionary<string, object> with custom args</string></param>
         /// <param name="caller">The name of the method that instantiated the object, automatically captured.</param>
         public AwaitedEventArgs(object args, [CallerMemberName] string caller = null)
-        {
-            _args = args;
-
-            // Because we have two discrete args, there's no need for
-            // the error checking. Whatever is occurring should be deliberate.
-            Caller = caller;
-        }
+            : this(caller) => _args = args;
 
         /// <summary>
         /// Adds a key-value pair to the Args dictionary, enabling the use of collection initializer syntax.
@@ -98,7 +111,14 @@ namespace IVSoftware.Portable.Threading
         /// </remarks>
         public void Add(string key, object value)
         {
-            _dict[key] = value; // Using indexer to allow overwriting existing keys.
+            if (Args is Dictionary<string, object> dict)
+            {
+                dict[key] = value; // Using indexer to allow overwriting existing keys.
+            }
+            else
+            {
+                throw new InvalidOperationException("Cannot add key-value pairs when Args is not a dictionary.");
+            }
         }
 
         /// <summary>
@@ -115,7 +135,14 @@ namespace IVSoftware.Portable.Threading
         /// </remarks>
         public void Add(Enum stdKey, object value)
         {
-            _dict[stdKey.ToString()] = value; // Using indexer to allow overwriting existing keys.
+            if (Args is Dictionary<string, object> dict)
+            {
+                dict[stdKey.ToString()] = value; // Using indexer to allow overwriting existing keys.
+            }
+            else
+            {
+                throw new InvalidOperationException("Cannot add key-value pairs when Args is not a dictionary.");
+            }
         }
 
         /// <summary>
@@ -233,6 +260,10 @@ namespace IVSoftware.Portable.Threading
         /// <param name="stdKey">The enumeration key to convert to string and locate in the dictionary.</param>
         /// <returns>true if the dictionary contains an element with the specified key; otherwise, false.</returns>
         public bool ContainsKey(Enum stdKey) => _dict.ContainsKey(stdKey.ToString());
+
+        internal static void RaiseSelf(object sender, AwaitedEventArgs e)
+            => Awaited?.Invoke(sender, e);
+
+        public static event EventHandler<AwaitedEventArgs> Awaited;
     }
-#endif
 }

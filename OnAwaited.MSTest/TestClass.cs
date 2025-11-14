@@ -13,6 +13,23 @@ namespace OnAwaited.MSTest
             HELLO_WORLD = "Hello World!",
             TYPE_NAME_ERROR = "UNEXPECTED: Type Name Error.";
 
+        [TestMethod]
+        public void HybridCollectionInitializer()
+        {
+            object @this = new();
+            try
+            {
+                @this.OnAwaited(new AwaitedEventArgs(args: "Hello World!")
+                {
+                    { "Key", "Value" }
+                });
+            }
+            catch (Exception ex)
+            {
+                Assert.Fail(ex.Message);
+            }
+        }
+
         /// <summary>
         /// This test is a demonstration of "awaiting the unawaitable" async void.
         /// </summary>
