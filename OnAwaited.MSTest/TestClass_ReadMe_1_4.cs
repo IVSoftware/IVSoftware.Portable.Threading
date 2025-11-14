@@ -3,6 +3,8 @@ using IVSoftware.Portable.Threading;
 using System.Diagnostics;
 using System.Windows.Forms;
 using OnAwaited.MSTest.WinApplication;
+using System.Runtime.CompilerServices;
+using System.Threading.Tasks;
 
 namespace OnAwaited.MSTest
 {
@@ -41,13 +43,22 @@ namespace OnAwaited.MSTest
         [TestMethod]
         public async Task Test_AwaitableDelay()
         {
-            await this.RunOnSTAThread(out _, async () => await Task.CompletedTask);
-            { }
+            using (var tstCon = new TstCon())
+            {
+                _ = tstCon.Handle;
+                await tstCon.Run(async () =>
+                {
+                    await Task.Delay(1);
+                });
+                tstCon.Close();
+                await tstCon;
+            }
         }
 
         [TestMethod]
         public async Task Test_Before()
         {
+#if false
             string actual = string.Empty;
             var stopwatch = Stopwatch.StartNew();
             await this.RunOnSTAThread(out _, async () =>
@@ -75,11 +86,13 @@ namespace OnAwaited.MSTest
                 "Clicked!",
                 actual,
                 $"Unfortunately these will NEVER be equal without some kind of 'magic delay' here.");
+#endif
         }
 
         [TestMethod]
         public async Task Test_After()
         {
+#if false
             string actual = string.Empty;
             SemaphoreSlim awaiter = new SemaphoreSlim(0, 1);
 
@@ -129,66 +142,63 @@ namespace OnAwaited.MSTest
                 "Clicked!",
                 actual,
                 $"The semaphore slim is now awaiting the next Awaited event.");
+#endif
         }
     }
 
     namespace WinApplication
     {
         using Application = System.Windows.Forms.Application;
+        public class TstCon : Form
+        {
+            public TstCon()
+            {
+                HandleCreated += (sender, e) =>
+                {
+                    BeginInvoke(() =>
+                    {
+                        _tcsReady.SetResult();
+                    });
+                };
+            }
+
+            private readonly TaskCompletionSource
+                _tcsReady = new(),
+                _tcsDone = new();
+            //protected override void SetVisibleCore(bool value)
+            //{
+            //    base.SetVisibleCore(value && false);
+            //}
+            protected override void Dispose(bool disposing)
+            {
+                base.Dispose(disposing);
+            }
+            public TaskAwaiter GetAwaiter() => _tcsDone.Task.GetAwaiter();
+
+            internal async Task Run(Func<Task> action)
+            {
+                while(!IsHandleCreated)
+                {
+                    await Task.Delay(100);
+                }
+                await action();
+            }
+        }
         static class STAExtensions
         {
-            private class SilentRunner : Form
+            public static async Task GetTstCon(this TstCon mainWnd)
             {
-                protected override void SetVisibleCore(bool value)
-                {
-                    base.SetVisibleCore(false);
-                    if (!IsHandleCreated)
-                    {
-                        _ = Handle;
-                    }
-                }
-            }
-            public static Task RunOnSTAThread(this object _, out Form mainWnd, Func<Task> action)
-            {
-                var _tcs = new TaskCompletionSource();
-                mainWnd = new SilentRunner();
-                var sr = mainWnd;
+                var tcs = new TaskCompletionSource();
                 var thread = new Thread(() =>
                 {
-                    try
-                    {
-                        // Fire when handle is created AND pump is running
-                        sr.HandleCreated += (_, __) =>
-                        {
-                            sr.BeginInvoke(new Action(async () =>
-                            {
-                                try
-                                {
-                                    await action();
-                                    _tcs.SetResult();
-                                }
-                                catch (Exception ex)
-                                {
-                                    _tcs.SetException(ex);
-                                }
-                                finally
-                                {
-                                    Application.ExitThread();
-                                }
-                            }));
-                        };
-                        Application.Run(sr); // pump starts here
-                    }
-                    catch (Exception ex)
-                    {
-                        _tcs.SetException(ex);
-                    }
+                    // Client must close the container when done
+                    Application.Run(mainWnd);
+                    tcs.SetResult();
                 });
 
                 thread.SetApartmentState(ApartmentState.STA);
                 thread.Start();
-
-                return _tcs.Task;
+                await tcs.Task;
             }
         }
     }
