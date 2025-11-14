@@ -12,12 +12,12 @@ namespace OnAwaited.MSTest
         [TestMethod]
         public async Task Test_UnawaitableBefore()
         {
+#if false
             string actual = string.Empty;
             await this.RunOnSTAThread(async () =>
             {
                 Random rando = new Random(); // An unseeded random.
                 await Task.Delay(TimeSpan.FromSeconds(0.5 + rando.NextDouble()));
-#if false
             await Task.CompletedTask;
 
             System.Windows.Forms.Button btn = new();
@@ -33,15 +33,15 @@ namespace OnAwaited.MSTest
                 actual = "Clicked!";
             }
             btn.PerformClick();
+            });
 
 #endif
-            });
         }
 
         [TestMethod]
         public async Task Test_AwaitableDelay()
         {
-            await this.RunOnSTAThread(async () => await Task.CompletedTask);
+            await this.RunOnSTAThread(out _, async () => await Task.CompletedTask);
             { }
         }
 
@@ -50,7 +50,7 @@ namespace OnAwaited.MSTest
         {
             string actual = string.Empty;
             var stopwatch = Stopwatch.StartNew();
-            await this.RunOnSTAThread(async () =>
+            await this.RunOnSTAThread(out _, async () =>
             {
                 System.Windows.Forms.Button btn = new();
                 _ = btn.Handle;
@@ -105,20 +105,20 @@ namespace OnAwaited.MSTest
                         IVSoftware.Portable.Threading.Extensions.Awaited -= localOnAwaited;
                     }))
             {
-                await this.RunOnSTAThread(async () =>
+                await this.RunOnSTAThread(out Form container, async () =>
                 {
-                    System.Windows.Forms.Button btn = new();
-                    _ = btn.Handle;
-                    btn.Click += localOnButtonClicked;
+                    //System.Windows.Forms.Button btn = new();
+                    //_ = btn.Handle;
+                    //btn.Click += localOnButtonClicked;
 
-                    // REAL handler don't have a Task return
-                    async void localOnButtonClicked(object? sender, EventArgs e)
-                    {
-                        await Task.Delay(TimeSpan.FromSeconds(1));
-                        actual = "Clicked!";
-                        this.OnAwaited();
-                    }
-                    btn.PerformClick();
+                    //// REAL handler don't have a Task return
+                    //async void localOnButtonClicked(object? sender, EventArgs e)
+                    //{
+                    //    await Task.Delay(TimeSpan.FromSeconds(1));
+                    //    actual = "Clicked!";
+                    //    this.OnAwaited();
+                    //}
+                    //btn.PerformClick();
                 });
             }
 
@@ -148,37 +148,36 @@ namespace OnAwaited.MSTest
                     }
                 }
             }
-            public static Task RunOnSTAThread(this object _, Func<Task> action)
+            public static Task RunOnSTAThread(this object _, out Form mainWnd, Func<Task> action)
             {
                 var _tcs = new TaskCompletionSource();
+                mainWnd = new SilentRunner();
+                var sr = mainWnd;
                 var thread = new Thread(() =>
                 {
                     try
                     {
-                        using (var sr = new SilentRunner())
+                        // Fire when handle is created AND pump is running
+                        sr.HandleCreated += (_, __) =>
                         {
-                            // Fire when handle is created AND pump is running
-                            sr.HandleCreated += (_, __) =>
+                            sr.BeginInvoke(new Action(async () =>
                             {
-                                sr.BeginInvoke(new Action(async () =>
+                                try
                                 {
-                                    try
-                                    {
-                                        await action();
-                                        _tcs.SetResult();
-                                    }
-                                    catch (Exception ex)
-                                    {
-                                        _tcs.SetException(ex);
-                                    }
-                                    finally
-                                    {
-                                        Application.ExitThread();
-                                    }
-                                }));
-                            };
-                            Application.Run(sr); // pump starts here
-                        }
+                                    await action();
+                                    _tcs.SetResult();
+                                }
+                                catch (Exception ex)
+                                {
+                                    _tcs.SetException(ex);
+                                }
+                                finally
+                                {
+                                    Application.ExitThread();
+                                }
+                            }));
+                        };
+                        Application.Run(sr); // pump starts here
                     }
                     catch (Exception ex)
                     {
