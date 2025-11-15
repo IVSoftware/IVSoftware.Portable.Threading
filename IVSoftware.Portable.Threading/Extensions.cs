@@ -24,12 +24,16 @@ namespace IVSoftware.Portable.Threading
             [CallerMemberName] string caller = null)
         {
             // Caller is inferred...
-            Awaited?.Invoke(
+            AwaitedEventArgs.RaiseSelf(
                 sender, 
                 e ??                            // ...from the block that instantiates AwaitedEventArgs
                 new AwaitedEventArgs(caller));  // ...from the block that calls OnAwaited() 
         }
-        public static event EventHandler<AwaitedEventArgs> Awaited;
+        public static event EventHandler<AwaitedEventArgs> Awaited
+        {
+            add => AwaitedEventArgs.Awaited += value;
+            remove => AwaitedEventArgs.Awaited -= value;
+        }
     }
 
 #if false

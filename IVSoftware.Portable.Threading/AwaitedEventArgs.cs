@@ -16,65 +16,84 @@ namespace IVSoftware.Portable.Threading
         /// <summary>
         /// Constructs a new instance of AwaitedEventArgs, defaulting to use a dictionary for storing event data.
         /// </summary>
-        /// <param name="caller">The name of the method that instantiated the object, automatically captured.</param>
+        /// <remarks>
+        /// HEURISTIC: When call site supplies a single, unnamed arg:
+        /// - It is ALWAYS attributed as a caller (even it the formatting indicates 
+        ///   that it couldn't possibly be a legal CallerMemberName.
+        /// - What we can't be certain of is whether the call site intends this as
+        ///   the Args value of type string, i.e. will be looking for it in that slot.
+        /// - We're going to tilt in favor of the posit that if value looks like a
+        ///   legal [CallerMemberName] - and this includes generic indexers like e.g.
+        ///   the test case of `System.Collections.Generic.IList<T>.Item` then log it
+        ///   as the caller only and leave Args pointed to the dict (for early adopters).
+        /// IN MODERN VERSIONS:
+        /// - This is less critical because 'this' is still going to be a dict even
+        ///   if Args has been replaced by something else (because by default it points
+        ///   to the dict). We're still not going to break the Rev OR contract, however.
+        /// - In other words, in early versions the Args had to be one one or the other.
+        /// </remarks>
         public AwaitedEventArgs([CallerMemberName] string caller = null)
+        : this(args: NullObject, caller: caller) { }
+
+        private static object NullObject = new object();
+
+        /// <summary>
+        /// Constructs a new instance of AwaitedEventArgs, allowing for the Args property to be set with a custom object.
+        /// </summary>
+        [Canonical]
+        public AwaitedEventArgs(object args, [CallerMemberName] string caller = null)
         {
-            if (caller is null)
-            {
-                _args = null;
-                Caller = null;
-                return;
-            }
+            // This is non-negotiable, because the single argument (or parameterless)
+            // call has forwarded what it has as the incoming caller arg.
+            Caller = caller;
 
-#if false
-            // Detects a leading and trailing quote and strips exactly one layer.
-            var trimmed = caller.Trim();
-            if (false && caller.Length >= 2 &&
-                trimmed.StartsWith(@"""") &&
-                trimmed.EndsWith(@""""))
+            if(args != null && caller != null && !Equals(args, NullObject))
             {
-                // Remove the outer quotes. The inner content is authoritative.
-                var literal = caller.Substring(1, caller.Length - 2);
-                _args = null;
-                Caller = literal;
-                return;
+                // This if a fully qualified call from the start.
+                _args = args;
             }
             else
             {
-            }
-#endif
-            // Case 2: Identifier-like caller.
-            bool containsIllegal =
-                    caller.Any(ch => !(char.IsLetterOrDigit(ch) || ch == '_'));
+                if(localDisqualifyAsCompilerGenerated())
+                {
+                    _args = caller;
+                }
+                // This means we have only 'caller' to work with. The question is,
+                // did the compiler populate it or was it used as a tag by EUD?
 
-            if (containsIllegal)
-            {
-                _args = caller;
-                Caller = "ERROR: Try disambiguating call by specifying 'args: " + caller + "'";
-            }
-            else
-            {
-                _args = null;
-                Caller = caller;
+                #region L o c a l F x 
+                bool localDisqualifyAsCompilerGenerated()
+                {
+                    var aspirant = caller;
+                    if (string.IsNullOrWhiteSpace(aspirant))
+                        return false; // Empty, whitespace-only, or null => treat as user-supplied tag.
+
+                    var trimmed = aspirant.Trim();
+
+                    // Rule 1: Disqualify for inner whitespace.
+                    // (Compiler never emits whitespace inside CallerMemberName)
+                    if (trimmed.Any(ch => char.IsWhiteSpace(ch)))
+                        return true;
+
+                    // Rule 2: Disqualify if starts with a digit.
+                    if (char.IsDigit(trimmed[0]))
+                        return true;
+
+                    // Rule 3: Disqualify if dotted at either edge
+                    if (trimmed.StartsWith(".") || trimmed.EndsWith("."))
+                        return true; // Disqualified
+
+                    // Rule 4: Disqualify if brackets unmatched
+                    if (trimmed.Contains("<") ^ trimmed.Contains(">"))
+                        return true;
+
+                    // Anything else is likely to have been generated by the compiler.
+                    return false;
+                }
+                #endregion L o c a l F x
             }
         }
 
-
-#if false
-        public AwaitedEventArgs([CallerMemberName] string caller = null)
-        {
-            if (caller is string s && !Regex.IsMatch(s, @"^[a-zA-Z_][a-zA-Z0-9_]*$"))
-            {
-                _args = caller;
-                Caller = $"ERROR: Try disambiguating call by specifying 'args: {caller}'";
-            }
-            else
-            {
-                _args = null; // This means that Args returns Dictionary<string, object> !!
-                Caller = caller;
-            }
-        }
-#endif
 
         /// <summary>
         /// By default, this object behaves like a dictionary, storing key-value pairs.
@@ -83,21 +102,13 @@ namespace IVSoftware.Portable.Threading
 
         public object _args = null;
 
-        private Dictionary<string, object> _dict = new Dictionary<string, object>();
+        private readonly Dictionary<string, object> _dict = new Dictionary<string, object>();
 
         /// <summary>
         /// Initializes a new instance of the AwaitedEventArgs class with the calling method's name as the caller.
         /// </summary>
         /// <param name="caller">The name of the method that instantiated the object, automatically captured.</param>
         public string Caller { get; }
-
-        /// <summary>
-        /// Constructs a new instance of AwaitedEventArgs, allowing for the Args property to be set with a custom object.
-        /// </summary>
-        /// <param name="args">Overrides the default Dictionary<string, object> with custom args</string></param>
-        /// <param name="caller">The name of the method that instantiated the object, automatically captured.</param>
-        public AwaitedEventArgs(object args, [CallerMemberName] string caller = null)
-            : this(caller) => _args = args;
 
         /// <summary>
         /// Adds a key-value pair to the Args dictionary, enabling the use of collection initializer syntax.
@@ -117,7 +128,7 @@ namespace IVSoftware.Portable.Threading
             }
             else
             {
-                throw new InvalidOperationException("Cannot add key-value pairs when Args is not a dictionary.");
+                _dict[key] = value; // Using indexer to allow overwriting existing keys.
             }
         }
 
@@ -145,46 +156,34 @@ namespace IVSoftware.Portable.Threading
             }
         }
 
-        /// <summary>
-        /// Retrieves or sets a value by key when Args is a dictionary, which is the default configuration.
-        /// Provides the option to throw if the key is not found or if Args is no longer a compatible dictionary type.
-        /// For setting values, adds or updates the key with the provided value if Args is a dictionary.
-        /// </summary>
-        /// <param name="key">The key of the value to retrieve or set.</param>
-        /// <param name="throw">If true, throws a KeyNotFoundException when attempting to retrieve a key that is not found in the dictionary, 
-        /// or an InvalidOperationException if Args is not a dictionary during retrieval or setting.</param>
-        /// <returns>The value associated with the specified key or null if the key is not found and 'throw' is false when retrieving.</returns>
+
         public object this[string key, bool @throw = false]
         {
             get
             {
-                if (Args is Dictionary<string, object> dict)
+                // Inspect object with the modern allowance for 'hybrid' initialization 
+                //where this.Args is not a dict but 'this' still is.
+                Dictionary<string, object> dict =
+                    Args is Dictionary<string, object> fromArgs
+                    ? fromArgs
+                    : _dict;
+                if (dict.TryGetValue(key, out var value))
                 {
-                    if (dict.TryGetValue(key, out var value))
-                    {
-                        return value;
-                    }
-                    else if (@throw)
-                    {
-                        throw new KeyNotFoundException("The given key was not present in the dictionary.");
-                    }
+                    return value;
                 }
                 else if (@throw)
                 {
-                    throw new InvalidOperationException("Args object is not a dictionary. Please check your Constructor.");
+                    throw new KeyNotFoundException("The given key was not present in the dictionary.");
                 }
-                return default;
+                else return default;
             }
             set
             {
-                if (Args is Dictionary<string, object> dict)
-                {
+                Dictionary<string, object> dict =
+                    Args is Dictionary<string, object> fromArgs
+                    ? fromArgs
+                    : _dict;
                     dict[key] = value;  // Adds or updates the key with the provided value.
-                }
-                else if (@throw)
-                {
-                    throw new InvalidOperationException("Args object is not a dictionary. Unable to set the value.");
-                }
             }
         }
 

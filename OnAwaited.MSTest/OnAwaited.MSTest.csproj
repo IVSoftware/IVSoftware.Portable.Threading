@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<!-- Multi-targeting: WinForms and MAUI -->
@@ -21,7 +21,7 @@
 
   <ItemGroup>
     <PackageReference Include="IVSoftware.Portable.Disposable" Version="2.0.0" />
-    <PackageReference Include="IVSoftware.WinOS.MSTest.Extensions.STA" Version="1.0.0-local0" />
+    <PackageReference Include="IVSoftware.WinOS.MSTest.Extensions.STA" Version="1.0.0-alpha" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
     <PackageReference Include="MSTest" Version="3.6.4" />
   </ItemGroup>

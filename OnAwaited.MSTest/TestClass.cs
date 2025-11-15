@@ -1,6 +1,6 @@
 ﻿using IVSoftware.Portable.Threading;
-using static IVSoftware.Portable.Threading.Extensions;
 using System.Diagnostics;
+using IVSoftware.Portable.Disposable;
 
 namespace OnAwaited.MSTest
 {
@@ -13,16 +13,45 @@ namespace OnAwaited.MSTest
             HELLO_WORLD = "Hello World!",
             TYPE_NAME_ERROR = "UNEXPECTED: Type Name Error.";
 
+
+        /// <summary>
+        /// Thest the combo of 'explicit args:' + 'collection initializer'.
+        /// </summary>
+        /// <remarks>
+        /// Threading the needle, where Args is initialized as a string (thus
+        /// making the AwaitedEventArgs.Args property 'not a dictionary` but 
+        /// still using the initializer list to append the underlying _dict 
+        /// because AwaitedEventArgs *itself* is 'still a dictionary` always.
+        /// </remarks>
         [TestMethod]
         public void HybridCollectionInitializer()
         {
             object @this = new();
             try
             {
-                @this.OnAwaited(new AwaitedEventArgs(args: "Hello World!")
+                #region L o c a l F x 
+                void localOnAwaited(object? sender, AwaitedEventArgs e)
                 {
-                    { "Key", "Value" }
-                });
+                    Assert.AreEqual(e.Args, "Hello World!");
+                    Assert.IsTrue(e.ContainsKey("Key"));
+                    Assert.AreEqual(e["Key"], "Value");
+                }
+                #endregion L o c a l F x
+                using (this.WithOnDispose(
+                    onInit: (sender, e) =>
+                        {
+                            AwaitedEventArgs.Awaited += localOnAwaited;
+                        },
+                    onDispose: (sender, e) =>
+                        {
+                            AwaitedEventArgs.Awaited -= localOnAwaited;
+                        }))
+                {
+                    @this.OnAwaited(new AwaitedEventArgs(args: "Hello World!")
+                    {
+                        { "Key", "Value" }
+                    });
+                }
             }
             catch (Exception ex)
             {
@@ -43,7 +72,7 @@ namespace OnAwaited.MSTest
             SemaphoreSlim awaiter = new SemaphoreSlim(1, 1);
             try
             {
-                Awaited += localOnAwaited;
+                AwaitedEventArgs.Awaited += localOnAwaited;
 
                 foreach (var testResponse in Enum.GetValues<TestResponse>())
                 {
@@ -83,7 +112,7 @@ namespace OnAwaited.MSTest
             }
             finally
             {
-                Awaited -= localOnAwaited;
+                AwaitedEventArgs.Awaited -= localOnAwaited;
                 awaiter.Wait(0);
                 awaiter.Release();
             }
@@ -117,7 +146,7 @@ namespace OnAwaited.MSTest
             AwaitedEventArgs? currentEvent = null!;
             try
             {
-                Awaited += localOnAwaited;
+                AwaitedEventArgs.Awaited += localOnAwaited;
 
                 foreach (var testResponse in Enum.GetValues<TestResponse>())
                 {
@@ -153,7 +182,7 @@ namespace OnAwaited.MSTest
             }
             finally
             {
-                Awaited -= localOnAwaited;
+                AwaitedEventArgs.Awaited -= localOnAwaited;
             }
 
             void localOnAwaited(object? sender, AwaitedEventArgs e)
