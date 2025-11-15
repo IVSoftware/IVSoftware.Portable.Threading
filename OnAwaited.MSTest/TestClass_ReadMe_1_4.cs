@@ -1,8 +1,8 @@
 using IVSoftware.Portable.Disposable;
 using IVSoftware.Portable.Threading;
 using OnAwaited.MSTest.WinApplication;
-using System;
 using System.Runtime.CompilerServices;
+using System.Windows;
 
 namespace OnAwaited.MSTest
 {
@@ -91,6 +91,17 @@ namespace OnAwaited.MSTest
 
             }
             Thread thread;
+
+            internal async Task RunAsync(Func<Task> action)
+            {
+                var tcs = new TaskCompletionSource();
+                Runner.BeginInvoke(async () =>
+                {
+                    await action();
+                    tcs.SetResult();
+                });
+                await tcs.Task;
+            }
         }
 
         [TestMethod]
@@ -99,6 +110,7 @@ namespace OnAwaited.MSTest
             var tstcon = new TstCon();
             { }
             await Task.Delay(TimeSpan.FromSeconds(1));
+            await tstcon.RunAsync(async()=> await Task.Delay(TimeSpan.FromSeconds(1)));
             tstcon.SetResult();
             await Task.Delay(TimeSpan.FromSeconds(1));
 
