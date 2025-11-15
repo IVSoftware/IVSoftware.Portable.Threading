@@ -15,20 +15,35 @@ namespace OnAwaited.MSTest
     {
        
 
-        class TstCon
+        class TstCon : TaskCompletionSource
         {
             public Form Runner { get; set; } = null!;
-
             public async Task Run()
             {
-                await Task.CompletedTask;
+                string actual, expected;
+
+
+                System.Windows.Forms.Button btn = new();
+                _ = btn.Handle;
+                btn.Click += localOnButtonClicked;
+
+                // This is an EventHandler delegate, and returning Task is not an option.
+                async void localOnButtonClicked(object? sender, EventArgs e)
+                {
+                    // We can only estimate how long this will take.
+                    actual = "Clicked!";
+                    await Task.Delay(10);
+                    { }
+                }
+                btn.PerformClick();
+
+                await Task.Delay(100);
             }
         }
         class STARunner
         {
             public static async Task Create(TstCon tstcon)
             {
-                TaskCompletionSource _tcs = new();
                 Thread thread = new Thread(() =>
                 {
                     // Verify
@@ -47,12 +62,12 @@ namespace OnAwaited.MSTest
                         });
                     };
                     System.Windows.Forms.Application.Run(tstcon.Runner);
-                    _tcs.SetResult();
+                    tstcon.SetResult();
                 });
                 // Just make sure to set the apartment state BEFORE starting the thread:
                 thread.SetApartmentState(ApartmentState.STA);
                 thread.Start();
-                await _tcs.Task;
+                await tstcon.Task;
             }
         }
 
