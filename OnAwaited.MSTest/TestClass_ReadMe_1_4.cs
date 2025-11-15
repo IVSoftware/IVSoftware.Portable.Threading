@@ -10,7 +10,28 @@ namespace OnAwaited.MSTest
     [TestClass]
     public class TestClass_ReadMe_1_4
     {      
+        class SilentRunner : Form
+        {
 
+            protected override void SetVisibleCore(bool value)
+            {
+                base.SetVisibleCore(value && !IsSilent);
+            }
+
+            public bool IsSilent
+            {
+                get => _isSilent;
+                set
+                {
+                    if (!Equals(_isSilent, value))
+                    {
+                        _isSilent = value;
+                    }
+                }
+            }
+            bool _isSilent = false;
+
+        }
         class TstCon : TaskCompletionSource
         {
             public Form Runner { get; set; } = null!;
@@ -61,7 +82,7 @@ namespace OnAwaited.MSTest
                 }
             }
 
-            public TstCon()
+            public TstCon(bool silent)
             {
                 thread = new Thread(() =>
                 {
@@ -71,10 +92,16 @@ namespace OnAwaited.MSTest
                     // Log a message to the Unit Test
                     Console.WriteLine($"Thread State is {Thread.CurrentThread.GetApartmentState()}.");
 
-                    Runner = new Form()
-                    {
-                        StartPosition = FormStartPosition.CenterScreen,
-                    };
+                    Runner = 
+                    silent
+                    ? new SilentRunner()
+                        {
+                            StartPosition = FormStartPosition.CenterScreen,
+                        }
+                    :  new Form()
+                        {
+                            StartPosition = FormStartPosition.CenterScreen,
+                        };
                     Runner.HandleCreated += async (sender, e) =>
                     {
                         //await Run();
@@ -108,8 +135,12 @@ namespace OnAwaited.MSTest
         [TestMethod]
         public async Task Test_TITGSA()
         {
-            var tstcon = new TstCon();
-            { }
+            // S I L E N T
+            var tstcon = new TstCon(true);
+
+
+
+
             await Task.Delay(TimeSpan.FromSeconds(1));
             await tstcon.RunAsync(async () => await Task.Delay(TimeSpan.FromSeconds(1)));
 
@@ -169,7 +200,7 @@ namespace OnAwaited.MSTest
         [TestMethod]
         public async Task Test_TITGSB()
         {
-            await new TstCon().Task;
+            await new TstCon(false).Task;
             { }
         }
 
