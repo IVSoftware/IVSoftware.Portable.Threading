@@ -1,17 +1,70 @@
 using IVSoftware.Portable.Disposable;
 using IVSoftware.Portable.Threading;
-using System.Diagnostics;
-using System.Windows.Forms;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using OnAwaited.MSTest.WinApplication;
+using System.Diagnostics;
+using System.Drawing;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Windows.Forms;
 
 namespace OnAwaited.MSTest
 {
     [TestClass]
     public class TestClass_ReadMe_1_4
     {
+       
+
+        class TstCon
+        {
+            public Form Runner { get; set; } = null!;
+
+            public async Task Run()
+            {
+                await Task.CompletedTask;
+            }
+        }
+        class STARunner
+        {
+            public static async Task Create(TstCon tstcon)
+            {
+                TaskCompletionSource _tcs = new();
+                Thread thread = new Thread(() =>
+                {
+                    // Verify
+                    Assert.IsTrue(Thread.CurrentThread.GetApartmentState() == ApartmentState.STA);
+
+                    // Log a message to the Unit Test
+                    Console.WriteLine($"Thread State is {Thread.CurrentThread.GetApartmentState()}.");
+
+                    tstcon.Runner = new Form();
+                    tstcon.Runner.HandleCreated += async (sender, e) =>
+                    {
+                        await tstcon.Run();
+                        tstcon.Runner.BeginInvoke(() =>
+                        {
+                            tstcon.Runner.Close();
+                        });
+                    };
+                    System.Windows.Forms.Application.Run(tstcon.Runner);
+                    _tcs.SetResult();
+                });
+                // Just make sure to set the apartment state BEFORE starting the thread:
+                thread.SetApartmentState(ApartmentState.STA);
+                thread.Start();
+                await _tcs.Task;
+            }
+        }
+
+        [TestMethod]
+        public async Task Test_TstCon()
+        {
+            var tstcon = new TstCon();
+            var awaiter = STARunner.Create(tstcon);
+            { }
+            await awaiter;
+            { }
+        }
 
         [TestMethod]
         public async Task Test_HM()
@@ -104,7 +157,7 @@ namespace OnAwaited.MSTest
         [TestMethod]
         public async Task Test_AwaitableDelay()
         {
-            using (var tstCon = new TstCon())
+            using (var tstCon = new TstConPrev00())
             {
                 _ = tstCon.Handle;
                 await tstCon.Run(async () =>
@@ -210,9 +263,9 @@ namespace OnAwaited.MSTest
     namespace WinApplication
     {
         using Application = System.Windows.Forms.Application;
-        public class TstCon : Form
+        public class TstConPrev00 : Form
         {
-            public TstCon()
+            public TstConPrev00()
             {
                 HandleCreated += (sender, e) =>
                 {
@@ -247,7 +300,7 @@ namespace OnAwaited.MSTest
         }
         static class STAExtensions
         {
-            public static async Task GetTstCon(this TstCon mainWnd)
+            public static async Task GetTstCon(this TstConPrev00 mainWnd)
             {
                 var tcs = new TaskCompletionSource();
                 var thread = new Thread(() =>
