@@ -3,6 +3,7 @@ using IVSoftware.Portable.Threading;
 using OnAwaited.MSTest.WinApplication;
 using System.Runtime.CompilerServices;
 using System.Windows;
+using System.Windows.Documents;
 
 namespace OnAwaited.MSTest
 {
@@ -110,7 +111,55 @@ namespace OnAwaited.MSTest
             var tstcon = new TstCon();
             { }
             await Task.Delay(TimeSpan.FromSeconds(1));
-            await tstcon.RunAsync(async()=> await Task.Delay(TimeSpan.FromSeconds(1)));
+            await tstcon.RunAsync(async () => await Task.Delay(TimeSpan.FromSeconds(1)));
+
+            await tstcon.RunAsync(async () =>
+            {
+                string actual = string.Empty;
+                var awaiter = new SemaphoreSlim(0, 1);
+
+                #region L o c a l F x 
+                void localOnAwaited(object? sender, AwaitedEventArgs e)
+                {
+                    switch (e.Caller)
+                    {
+                        default:
+                            awaiter.Release();
+                            break;
+                    }
+                }
+                #endregion L o c a l F x
+
+                using (this.WithOnDispose(
+                    onInit: (sender, e) =>
+                    {
+                        IVSoftware.Portable.Threading.Extensions.Awaited += localOnAwaited;
+                    },
+                    onDispose: (sender, e) =>
+                    {
+                        IVSoftware.Portable.Threading.Extensions.Awaited -= localOnAwaited;
+                    }))
+                {
+
+                    System.Windows.Forms.Button btn = new();
+                    _ = btn.Handle;
+                    btn.Click += localOnButtonClicked;
+
+                    // This is an EventHandler delegate, and returning Task is not an option.
+                    async void localOnButtonClicked(object? sender, EventArgs e)
+                    {
+                        // We can only estimate how long this will take.
+                        actual = "Clicked!";
+                        await Task.Delay(TimeSpan.FromSeconds(1));
+                        { }
+                        this.OnAwaited();
+                    }
+                    btn.PerformClick();
+
+                    await awaiter.WaitAsync();
+                };
+            });
+
             tstcon.SetResult();
             await Task.Delay(TimeSpan.FromSeconds(1));
 
