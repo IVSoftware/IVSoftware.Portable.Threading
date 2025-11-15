@@ -5,12 +5,71 @@ using System.Windows.Forms;
 using OnAwaited.MSTest.WinApplication;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace OnAwaited.MSTest
 {
     [TestClass]
     public class TestClass_ReadMe_1_4
     {
+
+        [TestMethod]
+        public async Task Test_HM()
+        {
+            // Use a semaphore to prevent the [TestMethod] from returning prematurely.
+            SemaphoreSlim ss = new SemaphoreSlim(1);
+            await ss.WaitAsync();
+            Thread thread = new Thread(() =>
+            {
+                // Verify
+                Assert.IsTrue(Thread.CurrentThread.GetApartmentState() == ApartmentState.STA);
+
+                // Log a message to the Unit Test
+                Console.WriteLine($"Thread State is {Thread.CurrentThread.GetApartmentState()}.");
+
+                // I personally needed to test a Winforms UI and
+                // the DragDrop COM wouldn't register without STA.
+                var myUI = new System.Windows.Forms.Form();
+                myUI.HandleCreated += async (sender, e) =>
+                {
+                    await AutomateMyUI(myUI);
+                };
+                System.Windows.Forms.Application.Run(myUI);
+
+                // Signal that the [TestMethod] can return now.
+                ss.Release();
+            });
+            // Just make sure to set the apartment state BEFORE starting the thread:
+            thread.SetApartmentState(ApartmentState.STA);
+            thread.Start();
+            await ss.WaitAsync();
+
+            Console.WriteLine("All done!");
+            async Task AutomateMyUI(Form myUI)
+            {
+
+                string actual, expected;
+
+                await Task.Delay(10);
+
+
+                System.Windows.Forms.Button btn = new();
+                _ = btn.Handle;
+                btn.Click += localOnButtonClicked;
+
+                // This is an EventHandler delegate, and returning Task is not an option.
+                async void localOnButtonClicked(object? sender, EventArgs e)
+                {
+                    // We can only estimate how long this will take.
+                    actual = "Clicked!";
+                    await Task.Delay(10);
+                    { }
+                }
+                btn.PerformClick();
+            }
+        }
+
+
         [TestMethod]
         public async Task Test_UnawaitableBefore()
         {
