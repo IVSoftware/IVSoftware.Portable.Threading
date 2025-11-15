@@ -12,7 +12,10 @@ namespace OnAwaited.MSTest
     {      
         class SilentRunner : Form
         {
-
+            public SilentRunner()
+            {
+                _ = Handle;
+            }
             protected override void SetVisibleCore(bool value)
             {
                 base.SetVisibleCore(value && !IsSilent);
@@ -29,7 +32,7 @@ namespace OnAwaited.MSTest
                     }
                 }
             }
-            bool _isSilent = false;
+            bool _isSilent = true;
 
         }
         class TstCon : TaskCompletionSource
