@@ -1,4 +1,7 @@
+using IVSoftware.Portable.Disposable;
+using IVSoftware.Portable.Threading;
 using OnAwaited.MSTest.WinApplication;
+using System;
 using System.Runtime.CompilerServices;
 
 namespace OnAwaited.MSTest
@@ -12,23 +15,49 @@ namespace OnAwaited.MSTest
             public Form Runner { get; set; } = null!;
             public async Task Run()
             {
-                string actual, expected;
+                string actual = string.Empty;
+                var awaiter = new SemaphoreSlim(0, 1);
 
-                System.Windows.Forms.Button btn = new();
-                _ = btn.Handle;
-                btn.Click += localOnButtonClicked;
-
-                // This is an EventHandler delegate, and returning Task is not an option.
-                async void localOnButtonClicked(object? sender, EventArgs e)
+                #region L o c a l F x 
+                void localOnAwaited(object? sender, AwaitedEventArgs e)
                 {
-                    // We can only estimate how long this will take.
-                    actual = "Clicked!";
-                    await Task.Delay(10);
-                    { }
+                    switch (e.Caller)
+                    {
+                        case nameof(Run):
+                            awaiter.Release();
+                            break;
+                    }
                 }
-                btn.PerformClick();
+                #endregion L o c a l F x
 
-                await Task.Delay(TimeSpan.FromSeconds(5));
+                using (this.WithOnDispose(
+                    onInit: (sender, e) =>
+                    {
+                        IVSoftware.Portable.Threading.Extensions.Awaited += localOnAwaited;
+                    },
+                    onDispose: (sender, e) =>
+                    {
+                        IVSoftware.Portable.Threading.Extensions.Awaited -= localOnAwaited;
+                    }))
+                {
+
+                    System.Windows.Forms.Button btn = new();
+                    _ = btn.Handle;
+                    btn.Click += localOnButtonClicked;
+
+                    // This is an EventHandler delegate, and returning Task is not an option.
+                    async void localOnButtonClicked(object? sender, EventArgs e)
+                    {
+                        // We can only estimate how long this will take.
+                        actual = "Clicked!";
+                        await Task.Delay(TimeSpan.FromSeconds(1));
+                        { }
+                        this.OnAwaited();
+                    }
+                    btn.PerformClick();
+
+                    await awaiter.WaitAsync();
+                }
             }
 
             public TstCon()
