@@ -99,7 +99,7 @@ namespace OnAwaited.MSTest
             var tstcon = new TstCon();
             { }
             await Task.Delay(TimeSpan.FromSeconds(1));
-            tstcon.Runner.BeginInvoke(() => tstcon.Runner.Close());
+            tstcon.SetResult();
             await Task.Delay(TimeSpan.FromSeconds(1));
 
             await tstcon.Task;
