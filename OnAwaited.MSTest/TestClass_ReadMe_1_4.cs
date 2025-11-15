@@ -76,11 +76,11 @@ namespace OnAwaited.MSTest
                     };
                     Runner.HandleCreated += async (sender, e) =>
                     {
-                        await Run();
-                        Runner.BeginInvoke(() =>
-                        {
-                            Runner.Close();
-                        });
+                        //await Run();
+                        //Runner.BeginInvoke(() =>
+                        //{
+                        //    Runner.Close();
+                        //});
                     };
                     System.Windows.Forms.Application.Run(Runner);
                     SetResult();
@@ -98,6 +98,9 @@ namespace OnAwaited.MSTest
         {
             var tstcon = new TstCon();
             { }
+            await Task.Delay(TimeSpan.FromSeconds(1));
+            tstcon.Runner.BeginInvoke(() => tstcon.Runner.Close());
+            await Task.Delay(TimeSpan.FromSeconds(1));
 
             await tstcon.Task;
         }
