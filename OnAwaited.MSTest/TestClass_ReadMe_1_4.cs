@@ -16,9 +16,7 @@ namespace OnAwaited.MSTest
         [TestMethod]
         public async Task Test_HM()
         {
-            // Use a semaphore to prevent the [TestMethod] from returning prematurely.
-            SemaphoreSlim ss = new SemaphoreSlim(1);
-            await ss.WaitAsync();
+            TaskCompletionSource ss = new ();
             Thread thread = new Thread(() =>
             {
                 // Verify
@@ -37,12 +35,12 @@ namespace OnAwaited.MSTest
                 System.Windows.Forms.Application.Run(myUI);
 
                 // Signal that the [TestMethod] can return now.
-                ss.Release();
+                ss.SetResult(); //.Release();
             });
             // Just make sure to set the apartment state BEFORE starting the thread:
             thread.SetApartmentState(ApartmentState.STA);
             thread.Start();
-            await ss.WaitAsync();
+            await ss.Task;
 
             Console.WriteLine("All done!");
             async Task AutomateMyUI(Form myUI)
@@ -66,6 +64,10 @@ namespace OnAwaited.MSTest
                     { }
                 }
                 btn.PerformClick();
+                myUI.BeginInvoke(() =>
+                {
+                    myUI.Close();
+                });
             }
         }
 
