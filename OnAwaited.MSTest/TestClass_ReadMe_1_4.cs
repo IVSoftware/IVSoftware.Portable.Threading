@@ -33,10 +33,45 @@ namespace OnAwaited.MSTest
                 }
             }
             bool _isSilent = true;
-
         }
         class TstCon : TaskCompletionSource
         {
+            public TstCon(bool silent)
+            {
+                var thread = new Thread(() =>
+                {
+                    // Verify
+                    Assert.IsTrue(Thread.CurrentThread.GetApartmentState() == ApartmentState.STA);
+
+                    // Log a message to the Unit Test
+                    Console.WriteLine($"Thread State is {Thread.CurrentThread.GetApartmentState()}.");
+
+                    Runner = 
+                    silent
+                    ? new SilentRunner()
+                        {
+                            StartPosition = FormStartPosition.CenterScreen,
+                        }
+                    :  new Form()
+                        {
+                            StartPosition = FormStartPosition.CenterScreen,
+                        };
+                    Runner.HandleCreated += async (sender, e) =>
+                    {
+                        //await Run();
+                        //Runner.BeginInvoke(() =>
+                        //{
+                        //    Runner.Close();
+                        //});
+                    };
+                    System.Windows.Forms.Application.Run(Runner);
+                    SetResult();
+                });
+                // Just make sure to set the apartment state BEFORE starting the thread:
+                thread.SetApartmentState(ApartmentState.STA);
+                thread.Start();
+
+            }
             public Form Runner { get; set; } = null!;
             public async Task Run()
             {
@@ -84,44 +119,6 @@ namespace OnAwaited.MSTest
                     await awaiter.WaitAsync();
                 }
             }
-
-            public TstCon(bool silent)
-            {
-                thread = new Thread(() =>
-                {
-                    // Verify
-                    Assert.IsTrue(Thread.CurrentThread.GetApartmentState() == ApartmentState.STA);
-
-                    // Log a message to the Unit Test
-                    Console.WriteLine($"Thread State is {Thread.CurrentThread.GetApartmentState()}.");
-
-                    Runner = 
-                    silent
-                    ? new SilentRunner()
-                        {
-                            StartPosition = FormStartPosition.CenterScreen,
-                        }
-                    :  new Form()
-                        {
-                            StartPosition = FormStartPosition.CenterScreen,
-                        };
-                    Runner.HandleCreated += async (sender, e) =>
-                    {
-                        //await Run();
-                        //Runner.BeginInvoke(() =>
-                        //{
-                        //    Runner.Close();
-                        //});
-                    };
-                    System.Windows.Forms.Application.Run(Runner);
-                    SetResult();
-                });
-                // Just make sure to set the apartment state BEFORE starting the thread:
-                thread.SetApartmentState(ApartmentState.STA);
-                thread.Start();
-
-            }
-            Thread thread;
 
             internal async Task RunAsync(Func<Task> action)
             {
