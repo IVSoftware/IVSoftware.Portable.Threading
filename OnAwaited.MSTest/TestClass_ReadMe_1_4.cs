@@ -94,7 +94,16 @@ namespace OnAwaited.MSTest
         }
 
         [TestMethod]
-        public async Task Test_TITGS()
+        public async Task Test_TITGSA()
+        {
+            var tstcon = new TstCon();
+            { }
+
+            await tstcon.Task;
+        }
+
+        [TestMethod]
+        public async Task Test_TITGSB()
         {
             await new TstCon().Task;
             { }
