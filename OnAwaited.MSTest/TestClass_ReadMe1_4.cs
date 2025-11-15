@@ -1,5 +1,5 @@
-using IVSoftware.WinOS.MSTest.Extensions;
-using IVSoftware.WinOS.MSTest.Extensions.STA;
+using IVSoftware.Portable.Disposable;
+using IVSoftware.Portable.Threading;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
@@ -8,39 +8,28 @@ namespace OnAwaited.MSTest
     [TestClass]
     public class TestClass_ReadMe1_4
     {
-
-        [TestMethod, Ignore]
-        public async Task Test_Before()
+        [TestMethod]
+        public void Test_Awaited101()
         {
-#if false
-            string actual = string.Empty;
-            var stopwatch = Stopwatch.StartNew();
-            await this.RunOnSTAThread(out _, async () =>
+            // Handler
+            void localOnAwaited(object? sender, AwaitedEventArgs e)
             {
-                System.Windows.Forms.Button btn = new();
-                _ = btn.Handle;
-                btn.Click += localOnButtonClicked;
+                Assert.AreEqual(
+                    actual: e.Caller, 
+                    expected: nameof(Test_Awaited101),
+                    message: $"Expecting the calling method to be identified 'for free'.");
 
-                // REAL handler don't have a Task return
-                async void localOnButtonClicked(object? sender, EventArgs e)
-                {
-                    await Task.Delay(TimeSpan.FromSeconds(1));
-                    actual = "Clicked!";
-                }
-                btn.PerformClick();
-                await Task.CompletedTask;
-            });
+                Assert.ReferenceEquals(objA: this, objB: sender);
+            }
 
-            // Option 1:
-            // - Guess how long to wait.
-            // - Put in a 'magic delay'
-            // - Wait (for too long or not long enough) and hope.
-
-            Assert.AreNotEqual(
-                "Clicked!",
-                actual,
-                $"Unfortunately these will NEVER be equal without some kind of 'magic delay' here.");
-#endif
+            // <PackageReference Include="IVSoftware.Portable.Disposable" Version="2.0.0" />
+            using (this.WithOnDispose(
+                onInit: (sender, e) => AwaitedEventArgs.Awaited += localOnAwaited,
+                onDispose: (sender, e) => AwaitedEventArgs.Awaited -= localOnAwaited))
+            {
+                // You can do this anywhere. In this case, someone *is* listening.
+                this.OnAwaited(); 
+            }
         }
 
         [TestMethod, Ignore]
