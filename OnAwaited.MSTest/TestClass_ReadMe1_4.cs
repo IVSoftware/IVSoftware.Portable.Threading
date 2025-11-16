@@ -2,8 +2,11 @@ using IVSoftware.Portable.Disposable;
 using IVSoftware.Portable.Threading;
 using IVSoftware.WinOS.MSTest.Extensions;
 using IVSoftware.WinOS.MSTest.Extensions.STA;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Newtonsoft.Json;
+using OnAwaited.MSTest.WinTest;
 using System.Diagnostics;
+using System.Net.Http;
 using System.Runtime.CompilerServices;
 
 namespace OnAwaited.MSTest
@@ -54,6 +57,7 @@ namespace OnAwaited.MSTest
             void localOnAwaited(object? sender, AwaitedEventArgs e)
             {
                 eventCount++;
+                Debug.WriteLine($"R{stopwatch.Elapsed}");
                 builder.Add($@"{((Control?)sender).Name} Sent {e[nameof(Stopwatch)]} Returned {stopwatch.Elapsed:mm\:ss\:ff}");
                 if (eventCount == 5)
                 {
@@ -72,7 +76,8 @@ namespace OnAwaited.MSTest
                 btnQueryCloud.Click += async (sender, e) =>
                 {
                     // Simlulate an indeterminate cloud retrieval.
-                    await Task.Delay(TimeSpan.FromSeconds(5 + 0.5 + (2 * rando.NextDouble())));
+                    await Task.Delay(TimeSpan.FromSeconds(5));
+                    //await Task.Delay(TimeSpan.FromSeconds(5 + 0.5 + (2 * rando.NextDouble())));
                     sender.OnAwaited(new AwaitedEventArgs
                     {
                         { nameof(Stopwatch), $@"{stopwatch.Elapsed:mm\:ss\.ff}" }
@@ -81,7 +86,9 @@ namespace OnAwaited.MSTest
                 for (int i = 0; i < 5; i++)
                 {
                     // Space these out a little but run concurrently.
-                    await Task.Delay(TimeSpan.FromSeconds(0.5));
+                    await Task.Delay(TimeSpan.FromSeconds(1));
+
+                    Debug.WriteLine(stopwatch.Elapsed);
                     btnQueryCloud.PerformClick();
                 }
             });
@@ -93,71 +100,125 @@ namespace OnAwaited.MSTest
 
             actual.ToClipboardExpected();
             { }
-            // Approximate
             expected = @" 
-QueryCloud Sent 00:07.97 Returned 00:07:98
-QueryCloud Sent 00:08.09 Returned 00:08:09
-QueryCloud Sent 00:08.62 Returned 00:08:62
-QueryCloud Sent 00:09.00 Returned 00:09:00
-QueryCloud Sent 00:09.57 Returned 00:09:57"
+QueryCloud Sent 00:06.09 Returned 00:06:09
+QueryCloud Sent 00:07.10 Returned 00:07:11
+QueryCloud Sent 00:08.11 Returned 00:08:12
+QueryCloud Sent 00:09.12 Returned 00:09:13
+QueryCloud Sent 00:10.13 Returned 00:10:14"
             ;
         }
-    }
 
-    namespace WinApplication
-    {
-        using Application = System.Windows.Forms.Application;
-        public class TstConPrev00 : Form
+        [TestMethod]
+        public async Task Test_CatFact()
         {
-            public TstConPrev00()
-            {
-                HandleCreated += (sender, e) =>
-                {
-                    BeginInvoke(() =>
-                    {
-                        _tcsReady.SetResult();
-                    });
-                };
-            }
+            string actual = null!, expected = null!, armed = "OnHandleCreated";
+            var builder = new List<string>();
+            var awaiter = new SemaphoreSlim(0, 1); // A blocked semaphore
+            System.Windows.Forms.Button? btn = null;
 
-            private readonly TaskCompletionSource
-                _tcsReady = new(),
-                _tcsDone = new();
-            //protected override void SetVisibleCore(bool value)
-            //{
-            //    base.SetVisibleCore(value && false);
-            //}
-            protected override void Dispose(bool disposing)
-            {
-                base.Dispose(disposing);
-            }
-            public TaskAwaiter GetAwaiter() => _tcsDone.Task.GetAwaiter();
+            // Subscribe to AwaitedEventArgs.Awaited for the duration of this test.
+            using var local = this.WithOnDispose(
+                onInit: (sender, e) => AwaitedEventArgs.Awaited += localOnAwaited,
+                onDispose: (sender, e) => AwaitedEventArgs.Awaited -= localOnAwaited);
 
-            internal async Task Run(Func<Task> action)
+            void localOnAwaited(object? sender, AwaitedEventArgs e)
             {
-                while(!IsHandleCreated)
+                switch (e.Caller)
                 {
-                    await Task.Delay(100);
+                    case "OnHandleCreated" when armed == "OnHandleCreated":
+                        btn = sender as System.Windows.Forms.Button;
+                        builder.Add($"OnHandleCreated Button={btn?.Text}");
+                        awaiter.Release();
+                        break;
+                    case "OnTextChanged" when armed == "OnTextChanged":
+                        actual = e["Text"] as string ?? string.Empty;
+                        builder.Add(actual);
+                        awaiter.Release();
+                        break;
                 }
-                await action();
             }
-        }
-        static class STAExtensions
-        {
-            public static async Task GetTstCon(this TstConPrev00 mainWnd)
-            {
-                var tcs = new TaskCompletionSource();
-                var thread = new Thread(() =>
-                {
-                    // Client must close the container when done
-                    Application.Run(mainWnd);
-                    tcs.SetResult();
-                });
 
-                thread.SetApartmentState(ApartmentState.STA);
-                thread.Start();
-                await tcs.Task;
+            // <PackageReference Include="IVSoftware.WinOS.MSTest.Extensions.STA" Version="1.0.0-alpha" />
+            // Make a disposable STA thread to run the form
+            using var sta = this.CreateSTAThread<CatFactForm>(isVisible: true);
+
+            await sta.RunAsync(async () =>
+            {
+                // Wait for OnHandleCreated
+                await awaiter.WaitAsync();
+
+                armed = "OnTextChanged";
+                btn?.PerformClick();
+
+                // Wait for loading message if present.
+                await awaiter.WaitAsync();
+                if(actual.StartsWith("Loading"))
+                {
+                    // Wait for fact or error.
+                    await awaiter.WaitAsync();
+                }
+            });
+
+            // Test result
+
+            actual = string.Join(Environment.NewLine, builder);
+
+            actual.ToClipboardAssert("Expecting builder content to match.");
+            { }
+            expected = @" 
+OnHandleCreated Button=Cat Fact
+Loading...
+A cats field of vision is about 185 degrees.";
+
+            Assert.AreEqual(
+                expected.NormalizeResult(),
+                actual.NormalizeResult(),
+                "Expecting builder contains cat fact 0."
+            );
+        }
+    }
+    namespace WinTest
+    {
+        using System.Text.Json;
+        using Button = System.Windows.Forms.Button;
+        public partial class CatFactForm : Form
+        {
+            public CatFactForm()
+            {
+                InitializeComponent();
+                
+                // DFT: Provide button handle when ready in order to PerformClick on it.
+                HandleCreated +=(sender, e)
+                    => btnCatFact.OnAwaited(caller: nameof(OnHandleCreated));
+
+                // DFT: Notify when text changes on button by adding new text to event dictinary.
+                txtFact.TextChanged += (sender, e) 
+                    => txtFact.OnAwaited(new AwaitedEventArgs(caller: nameof(OnTextChanged)){ { nameof(Text), txtFact.Text} });
             }
+
+            private void InitializeComponent()
+            {
+                btnCatFact = new Button { Text = "Cat Fact", Left = 10, Top = 10, Width = 100 };
+                txtFact = new TextBox { Left = 10, Top = 50, Width = 360, Height = 120, Multiline = true };
+                btnCatFact.Click += btnCatFact_Click;
+
+                Controls.Add(btnCatFact);
+                Controls.Add(txtFact);
+
+                StartPosition = FormStartPosition.CenterScreen;
+            }
+
+            private async void btnCatFact_Click(object? sender, EventArgs e)
+            {
+                txtFact.Text = "Loading...";
+                using var http = new HttpClient();
+                var json = await http.GetStringAsync("https://meowfacts.herokuapp.com/?id=0");                    
+                var fact = JsonDocument.Parse(json).RootElement.GetProperty("data")[0].GetString();
+                txtFact.Text = fact ?? "(no fact returned)";
+            }
+            private Button btnCatFact;
+            private TextBox txtFact;
         }
     }
 }
