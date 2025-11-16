@@ -1,5 +1,8 @@
 using IVSoftware.Portable.Disposable;
 using IVSoftware.Portable.Threading;
+using IVSoftware.WinOS.MSTest.Extensions;
+using IVSoftware.WinOS.MSTest.Extensions.STA;
+using Newtonsoft.Json;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
@@ -32,60 +35,72 @@ namespace OnAwaited.MSTest
             }
         }
 
-        [TestMethod, Ignore]
-        public async Task Test_After()
+        [TestMethod]
+        public async Task Test_UnawaitableScenario()
         {
-#if false
-            string actual = string.Empty;
-            SemaphoreSlim awaiter = new SemaphoreSlim(0, 1);
+            string actual, expected;
+
+            var rando = new Random(10);
+            var awaiter = new SemaphoreSlim(0, 1);
+            var builder = new List<string>();
+            var stopwatch = Stopwatch.StartNew();
+            var tcs = new TaskCompletionSource();
+            var eventCount = 0;
 
             #region L o c a l F x 
+            using var local = this.WithOnDispose(
+                onInit: (sender, e) => AwaitedEventArgs.Awaited += localOnAwaited,
+                onDispose: (sender, e) => AwaitedEventArgs.Awaited -= localOnAwaited);
             void localOnAwaited(object? sender, AwaitedEventArgs e)
             {
-                switch (e.Caller)
+                eventCount++;
+                builder.Add($@"{((Control?)sender).Name} Sent {e[nameof(Stopwatch)]} Returned {stopwatch.Elapsed:mm\:ss\:ff}");
+                if (eventCount == 5)
                 {
-                    case nameof(Test_After):
-                        awaiter.Release();
-                        break;
+                    tcs.SetResult();
                 }
             }
             #endregion L o c a l F x
 
-            using (this.WithOnDispose(
-                onInit: (sender, e) =>
-                    {
-                        IVSoftware.Portable.Threading.Extensions.Awaited += localOnAwaited;
-                    },
-                onDispose: (sender, e) =>
-                    {
-                        IVSoftware.Portable.Threading.Extensions.Awaited -= localOnAwaited;
-                    }))
+            // <PackageReference Include="IVSoftware.WinOS.MSTest.Extensions.STA" Version="1.0.0-alpha" />
+            using var sta = new STARunner(isVisible: false);
+
+            await sta.RunAsync(async () =>
             {
-                await this.RunOnSTAThread(out Form container, async () =>
+                var btnQueryCloud = new System.Windows.Forms.Button() { Name = "QueryCloud" };
+
+                btnQueryCloud.Click += async (sender, e) =>
                 {
-                    //System.Windows.Forms.Button btn = new();
-                    //_ = btn.Handle;
-                    //btn.Click += localOnButtonClicked;
+                    // Simlulate an indeterminate cloud retrieval.
+                    await Task.Delay(TimeSpan.FromSeconds(5 + 0.5 + (2 * rando.NextDouble())));
+                    sender.OnAwaited(new AwaitedEventArgs
+                    {
+                        { nameof(Stopwatch), $@"{stopwatch.Elapsed:mm\:ss\.ff}" }
+                    });
+                };
+                for (int i = 0; i < 5; i++)
+                {
+                    // Space these out a little but run concurrently.
+                    await Task.Delay(TimeSpan.FromSeconds(0.5));
+                    btnQueryCloud.PerformClick();
+                }
+            });
+            await tcs.Task;
 
-                    //// REAL handler don't have a Task return
-                    //async void localOnButtonClicked(object? sender, EventArgs e)
-                    //{
-                    //    await Task.Delay(TimeSpan.FromSeconds(1));
-                    //    actual = "Clicked!";
-                    //    this.OnAwaited();
-                    //}
-                    //btn.PerformClick();
-                });
-            }
 
-            await awaiter.WaitAsync();
+            actual = string.Join(Environment.NewLine, builder);
 
 
-            Assert.AreEqual(
-                "Clicked!",
-                actual,
-                $"The semaphore slim is now awaiting the next Awaited event.");
-#endif
+            actual.ToClipboardExpected();
+            { }
+            // Approximate
+            expected = @" 
+QueryCloud Sent 00:07.97 Returned 00:07:98
+QueryCloud Sent 00:08.09 Returned 00:08:09
+QueryCloud Sent 00:08.62 Returned 00:08:62
+QueryCloud Sent 00:09.00 Returned 00:09:00
+QueryCloud Sent 00:09.57 Returned 00:09:57"
+            ;
         }
     }
 
