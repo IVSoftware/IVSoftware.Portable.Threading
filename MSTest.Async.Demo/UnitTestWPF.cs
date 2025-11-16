@@ -61,7 +61,7 @@ namespace MSTest.Async.Demo
         /// Since the test routine doesn't actually initiate the button clicks 
         /// (the User does) we apply a strategy to await the user action.
         /// </summary>
-        [TestMethod] // REQUIRES HUMAN INTERACTION
+        [TestMethod, Ignore] // REQUIRES HUMAN INTERACTION
         public async Task TestUserInteractions()
         {
             SemaphoreSlim awaiter = new SemaphoreSlim(0, 1);
