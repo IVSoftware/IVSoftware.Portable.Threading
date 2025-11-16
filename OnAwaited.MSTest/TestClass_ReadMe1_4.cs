@@ -61,8 +61,10 @@ namespace OnAwaited.MSTest
                         awaiter.SafeRelease();
                         break;
                     case "OnTextChanged" when armed == "OnTextChanged":
-                        actual = e.TryGetValue// e["Text"] as string ?? string.Empty;
-                        builder.Add(actual);
+                        if (e.TryGetValue("Text", out actual))
+                        {
+                            builder.Add(actual);
+                        }
                         awaiter.SafeRelease();
                         break;
                 }

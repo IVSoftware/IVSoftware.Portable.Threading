@@ -235,7 +235,7 @@ namespace IVSoftware.Portable.Threading
         }
 
         /// <summary>
-        /// Tolerant retriaval of a typed value by T
+        /// Tolerant retrieval of a typed value by T
         /// </summary>
         public T GetValue<T>(string key, bool @throw = false)
         {
@@ -252,7 +252,6 @@ namespace IVSoftware.Portable.Threading
                 return default;
             }
         }
-
 
         public int Count => _dict.Count;
         /// <summary>
