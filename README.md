@@ -232,7 +232,11 @@ ___
         txtFact.Text = doc.RootElement.GetProperty("title").GetString();
 
         // DFT: Signal that await has completed in a method that returns no Task.
-        this.OnAwaited(new AwaitedEventArgs(caller: nameof(OnTextChanged)){ { nameof(Text), txtFact.Text} });
+        this.OnAwaited(
+            new AwaitedEventArgs(caller: nameof(OnTextChanged))
+            {
+                { nameof(Text), txtFact.Text} 
+            });
     }
 ```
 
@@ -272,7 +276,12 @@ From here, the test can advance to the second awaited phase:
     });
 ```
 
-Touching back on the `localOnAwaited` handler, recall that we added results to the `builder` each time it was raised. In terms of general strategy, instead of trying to pick things apart - counting events and such - in tests like these where the result is idempotent then _regardless of how complex things might get_ you can verify _everything_ by joining the builder, or perhaps serializing an object to JSON as a comparison tool.
+
+#### Test Method Local Handler Advanced
+
+In the code above, recall that a string result is appended to the `builder` each time it was raised. 
+
+What this means in terms of general strategy is that instead of trying to pick things apart - counting events and such - tests like these where the result is idempotent can do things like joining the builder of JSON serialize an object to obtain a complex limit.
 
 ```
     // Test result
@@ -287,4 +296,41 @@ delectus aut autem";
         "Expecting to see evidence of exactly two specific events."
     );
 ```
+
+The string "delectus aut autem" is a _lorem ipsum_ returned by the API, but how did it come to be attached to`e`? The key - literally - is that `AwaitedEventArgs` functions as a `Dictionary<string,object>()`.
+
+The call site in the click handler used a collection initializer to populate this dictionary.
+
+```
+    this.OnAwaited(
+        new AwaitedEventArgs(caller: nameof(OnTextChanged))
+        {
+            { nameof(Text), txtFact.Text} 
+        });
+```
+
+In the handler for the `Awaited` event, it's read back like any string dictionary key.
+
+```
+    actual = e["Text"] as string ?? string.Empty;
+
+```
+
+___
+
+### Recap of Basic Features
+
+Test points can be placed anywhere in an application's control flow with essentially no cost. It does not matter if they are never used. When a subscription is active, each test point becomes an awaited boundary simply by releasing a synchronization primitive on the test side. The observability comes from the test harness, not from the object under test.
+
+In effect, any such point becomes awaitable on demand.
+
+#### Notes on Visibility
+
+Whether these test points are compiled into production builds is entirely up to you. They can be left in place for telemetry or forensic purposes, or excluded in a release configuration. Either way, the need for test adapters, special visibility modifiers, or `InternalsVisibleTo` disappears. As the earlier example showed, a private `Button` and a private `async void` handler were both fully testable from the outside without altering their access levels.
+
+___
+
+
+
+
 
