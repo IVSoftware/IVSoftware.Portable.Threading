@@ -331,6 +331,49 @@ Whether these test points are compiled into production builds is entirely up to 
 ___
 
 
+### Advanced Applications: Beyond Simple Checkpoints
+
+The earlier examples treated `AwaitedEventArgs` as a simple marker carrying a single value. In practice, it is backed by a `Dictionary<string,object>` that can carry far more expressive data. The values placed in it are not limited to diagnostics. They can participate directly in the workflow and coordinate with the test harness.
+
+Common examples include:
+
+- Structured context objects for a given flow.
+- Delegates that act as callbacks into the test harness.
+- Arbitrary object instances with no schema constraints.
+- JSON or XML documents representing intermediate state.
+- Synchronization primitives such as TaskCompletionSource or CountdownEvent.
+- Enums used for finite state transitions.
+- Loop or retry instructions.
+- Reference counters or tokens similar to a DisposableHost pattern.
+
+___
+
+#### Not a One-Way Conversation
+
+The dictionary is not restricted to one-way traffic. Test code can write to it just as freely as the producer can. This allows a test to supply values, inject behavior, or shape the next phase of a workflow before the handler returns. The pattern is not limited to UI event lifecycles. Any scenario with asynchronous boundaries, state transitions, or cooperative steps can use the same mechanism.
+
+Whether the test is coordinating multiple phases of a token-ring workflow, exchanging structured state with an embedded device, or simply capturing a sequence of transitions for forensic comparison, the same principles apply. Test points remain optional and low-impact, and the test harness decides how much information to exchange at each boundary.
+
+___
+
+#### Many Effective Concurrency Management Paths
+
+A common reaction is: "A static event? This cannot be thread-safe."  
+The concern is valid. The reality is more interesting.
+
+Consider a test runner with twenty tests executing in parallel, each with its own semaphore. The worst-case failure mode is a deadlock on the test side. The application does not carry any of those synchronization objects; nothing in production becomes entangled. That is already a practical win.
+
+Now imagine calling `OnAwaited` twice in succession. Suppose the first event populates the dictionary with an enum for phase management (for example, `Phase.ContextRequest`), and all twenty tests are listening. Each test now has an opportunity to attach its own context object keyed in whatever manner the test requires.
+
+Because the event is fired synchronously, the second event (such as `Phase.Run`) will reach all listeners while the dictionary is still present. Each of the twenty tests is now able to inspect not only its own context, but the others as well.
+
+At that point:
+
+- The class under test can synchronously examine the available contexts and populate them appropriately.
+- Each test can disambiguate cross-test chatter by locating its own context in the shared pile.
+- A test can even maintain a visited list to determine which contexts have responded and which have not.
+
+Armed with that information, concurrency becomes something explicit and navigable rather than opaque. The mechanism does not enforce a concurrency model; it simply gives you a clear view of what is happening so you can decide how to handle it.
 
 
 
