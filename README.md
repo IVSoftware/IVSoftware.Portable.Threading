@@ -75,7 +75,7 @@ ___
 Most .NET developers are familiar with a long-standing friction and pain point: event handlers that cannot return `Task`. This makes asynchronous work inside UI events fundamentally opaque, and unit tests tend to fall back on timing guesses and magic delays. Before this ever had a name, before it was a package, that was the spark. 
 
 ___
-_In short: "Suppose a UI button is going to retrieve something from a server. How does one determine — rather than guess — when the result has actually returned?" That scenario, and many others like it, became the spark._ 
+_In short: "Suppose a UI button is going to retrieve something from a server. How does one determine - rather than guess - when the result has actually returned?" That scenario, and many others like it, became the spark._ 
 ___
 
 To demonstrate, let's make a real form with a real API call (not mocked). Now ask, what would it take to drive this UI in test and reliably evaluate the API response.
