@@ -61,7 +61,7 @@ namespace OnAwaited.MSTest
                         awaiter.SafeRelease();
                         break;
                     case "OnTextChanged" when armed == "OnTextChanged":
-                        actual = e["Text"] as string ?? string.Empty;
+                        actual = e.TryGetValue// e["Text"] as string ?? string.Empty;
                         builder.Add(actual);
                         awaiter.SafeRelease();
                         break;
@@ -76,36 +76,41 @@ namespace OnAwaited.MSTest
             {
                 // Wait for OnHandleCreated
                 await awaiter.WaitAsync();
+                // Wait for API response with timeout
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+                var stopwatch = Stopwatch.StartNew();
 
-                armed = "OnTextChanged";
-                btn?.PerformClick();
-
-                // Wait for loading message if present.
-                await awaiter.WaitAsync();
-                if(actual.StartsWith("Loading"))
+                try
                 {
-                    // Wait for fact or error.
-                    await awaiter.WaitAsync();
-                    // Dwell long enough to view result
-                    await Task.Delay(TimeSpan.FromSeconds(2.5));
+                    armed = "OnTextChanged";
+                    btn?.PerformClick();
+                    await awaiter.WaitAsync(cts.Token); 
+                } 
+                catch (OperationCanceledException) {
+                    Assert.Fail("Expecting the API to respond within the alotted maximum time.");
                 }
+                stopwatch.Stop();
+
+                Assert.IsTrue(
+                    stopwatch.Elapsed < TimeSpan.FromSeconds(1),
+                    $"We're expecting typical values ~0.2 seconds with deviation."
+                );
             });
 
             // Test result
 
             actual = string.Join(Environment.NewLine, builder);
 
-            actual.ToClipboardAssert("Expecting builder content to match.");
+            actual.ToClipboardExpected();
             { }
             expected = @" 
 OnHandleCreated Button=API Query
-Loading...
 delectus aut autem";
 
             Assert.AreEqual(
                 expected.NormalizeResult(),
                 actual.NormalizeResult(),
-                "Expecting fake JSON retrieved from real API."
+                "Expecting builder content to match."
             );
         }
     }
@@ -120,12 +125,7 @@ delectus aut autem";
                 InitializeComponent();
                 
                 // DFT: Provide button handle when ready in order to PerformClick on it.
-                HandleCreated +=(sender, e)
-                    => btnApiQuery.OnAwaited(caller: nameof(OnHandleCreated));
-
-                // DFT: Notify when text changes on button by adding new text to event dictionary.
-                txtFact.TextChanged += (sender, e) 
-                    => txtFact.OnAwaited(new AwaitedEventArgs(caller: nameof(OnTextChanged)){ { nameof(Text), txtFact.Text} });
+                HandleCreated +=(sender, e) => btnApiQuery.OnAwaited(caller: nameof(OnHandleCreated));
             }
 
             private void InitializeComponent()
@@ -148,6 +148,9 @@ delectus aut autem";
                 // Parse and show something interesting
                 var doc = JsonDocument.Parse(json);
                 txtFact.Text = doc.RootElement.GetProperty("title").GetString();
+
+                // DFT: Notify when text changes on button by adding new text to event dictionary.
+                this.OnAwaited(new AwaitedEventArgs(caller: nameof(OnTextChanged)){ { nameof(Text), txtFact.Text} });
             }
             private Button btnApiQuery;
             private TextBox txtFact;

@@ -213,6 +213,7 @@ namespace IVSoftware.Portable.Threading
             }
             return Enumerable.Empty<object>().GetEnumerator();
         }
+
         /// <summary>
         /// Tries to retrieve a value by key from the Args property when it is a dictionary, casting it to the specified type.
         /// This method provides a way to attempt to retrieve values without throwing exceptions,
@@ -224,17 +225,35 @@ namespace IVSoftware.Portable.Threading
         /// <typeparam name="T">The type to which the retrieved value should be cast.</typeparam>
         public bool TryGetValue<T>(string key, out T value)
         {
-            if (Args is Dictionary<string, object> dict)
+            if (_dict.TryGetValue(key, out var unk) && unk is T valueT)
             {
-                if (dict.TryGetValue(key, out var o) && o is T t)
-                {
-                    value = t;
-                    return true;
-                }
+                value = valueT;
+                return true;
             }
             value = default;
             return false;
         }
+
+        /// <summary>
+        /// Tolerant retriaval of a typed value by T
+        /// </summary>
+        public T GetValue<T>(string key, bool @throw = false)
+        {
+            if (_dict.TryGetValue(key, out var unk) && unk is T valueT)
+            {
+                return valueT;
+            }
+            else
+            {
+                if(@throw)
+                {
+                    throw new KeyNotFoundException(key);
+                }
+                return default;
+            }
+        }
+
+
         public int Count => _dict.Count;
         /// <summary>
         /// Gets the collection of keys contained in the underlying dictionary.

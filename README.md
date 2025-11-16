@@ -38,7 +38,7 @@ public void Test_Awaited101()
         onInit: (sender, e) => AwaitedEventArgs.Awaited += localOnAwaited,
         onDispose: (sender, e) => AwaitedEventArgs.Awaited -= localOnAwaited))
     {
-        // You can do this anywhere. In this case, someone *is* listening.
+        // You can do this anywhere. In this case, someone *is* listening (ephemerally).
         this.OnAwaited(); 
     }
 }
@@ -106,14 +106,13 @@ Now let's retrofit the same class for testability, explaining as we go.
 For this two-in-one effect, the timing can trigger on the form's `HandleCreated` event. And if the button handle is used to call `OnAwaited()` then it will show up as the sender. This will allow us to call the button's native`PerformClick()` method.
 
 ```
-public JsonApiViewer()
-{
-    InitializeComponent();
+    public JsonApiViewer()
+    {
+        InitializeComponent();
                 
-    // DFT: Provide button handle when ready in order to PerformClick on it.
-    HandleCreated +=(sender, e)
-        => btnApiQuery.OnAwaited(caller: nameof(OnHandleCreated));
-}
+        // DFT: Provide button handle when ready in order to PerformClick on it.
+        HandleCreated +=(sender, e) => btnApiQuery.OnAwaited(caller: nameof(OnHandleCreated));
+    }
 ```
 
 #### Setting up the Listener in MSTest
@@ -139,16 +138,14 @@ public async Task Test_JsonPlaceholderAPI()
 ```
 ___
 
-Then, following the first example, add an event handler for the duration of the test.
+Then, like the first example, add an ephemeral event handler for the duration of the test.
 
 ```
-    using (this.WithOnDispose(
+    // Subscribe to AwaitedEventArgs.Awaited for the duration of this test.
+    using var local = this.WithOnDispose(
         onInit: (sender, e) => AwaitedEventArgs.Awaited += localOnAwaited,
-        onDispose: (sender, e) => AwaitedEventArgs.Awaited -= localOnAwaited))
-    {
-        // You can do this anywhere. In this case, someone *is* listening.
-        this.OnAwaited(); 
-    }
+        onDispose: (sender, e) => AwaitedEventArgs.Awaited -= localOnAwaited);
+
 ```
 
 Keep in mind that `Awaited` is a static event, and there's some chance that tests are running parallel. This means that the local handler will need to be selective. The "armed" filter provides a simple way to take action on an event in this method while ignoring it in a concurrent test, and it's already initialised to `"OnHandleCreated"`.
@@ -206,3 +203,88 @@ At first glance, it seems odd that execution has already passed a semaphore we k
 3. In that same branch, the `sender` was captured as the button instance and is now available for use.
 
 ___
+
+_This completes the DFT setup described as step 1._
+
+___
+
+#### DFT Final Setup
+
+The second step will complete the setup and the test will be finalized.
+
+2. "I need to await the 'unawaitable' handler that runs when I call `PerformClick()` on the handle received in Step 1."
+
+The solution is to place an `OnAwaited()` call immediately after the awaited operation resumes. 
+
+___
+
+_This is where the name originated: a simple signal marking an awaited boundary inside a method that cannot return a `Task`. It turned out to be useful in many of other scenarios, but this was the first and most obvious case._
+___
+
+```
+    private async void btnApiQuery_Click(object? sender, EventArgs e)
+    {
+        txtFact.Text = "Loading...";
+        using var http = new HttpClient();
+        var json = await http.GetStringAsync("https://jsonplaceholder.typicode.com/todos/1");
+        // Parse and show something interesting
+        var doc = JsonDocument.Parse(json);
+        txtFact.Text = doc.RootElement.GetProperty("title").GetString();
+
+        // DFT: Signal that await has completed in a method that returns no Task.
+        this.OnAwaited(new AwaitedEventArgs(caller: nameof(OnTextChanged)){ { nameof(Text), txtFact.Text} });
+    }
+```
+
+#### Test Method Final Setup
+
+From here, the test can advance to the second awaited phase:
+
+1. Arm the semaphore for `"OnTextChanged"`.
+2. Virtually click the button (the same way a UI user would) by calling `PerformClick()`.
+3. Await the local semaphore that _can_ be awaited, acting as a proxy for the handler that _can't_.
+
+
+```
+    await sta.RunAsync(async () =>
+    {
+        // Wait for OnHandleCreated
+        await awaiter.WaitAsync();
+        // Wait for API response with timeout
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        var stopwatch = Stopwatch.StartNew();
+
+        try
+        {
+            armed = "OnTextChanged";
+            btn?.PerformClick();
+            await awaiter.WaitAsync(cts.Token); 
+        } 
+        catch (OperationCanceledException) {
+            Assert.Fail("Expecting the API to respond within the alotted maximum time.");
+        }
+        stopwatch.Stop();
+
+        Assert.IsTrue(
+            stopwatch.Elapsed < TimeSpan.FromSeconds(1),
+            $"We're expecting typical values ~0.2 seconds with deviation."
+        );
+    });
+```
+
+Touching back on the `localOnAwaited` handler, recall that we added results to the `builder` each time it was raised. In terms of general strategy, instead of trying to pick things apart - counting events and such - in tests like these where the result is idempotent then _regardless of how complex things might get_ you can verify _everything_ by joining the builder, or perhaps serializing an object to JSON as a comparison tool.
+
+```
+    // Test result
+    actual = string.Join(Environment.NewLine, builder);
+    expected = @" 
+OnHandleCreated Button=API Query
+delectus aut autem";
+
+    Assert.AreEqual(
+        expected.NormalizeResult(),
+        actual.NormalizeResult(),
+        "Expecting to see evidence of exactly two specific events."
+    );
+```
+
