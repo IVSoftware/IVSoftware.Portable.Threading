@@ -48,7 +48,7 @@ Recap of the call sequence:
 
 1. Subscribes to the Awaited event for the duration of the using block.
 2. Calls OnAwaited() with no special ceremony.
-3. Receives a "ping" identified by the sender and calling method (i.e. [CallerMemberName]`).
+3. Receives a "ping" identified by the sender and calling method (i.e. `[CallerMemberName]`).
 4. Automatically unsubscribes when leaving scope.
 
 ___
@@ -116,14 +116,93 @@ public JsonApiViewer()
 }
 ```
 
-####
+#### Setting up the Listener in MSTest
+
+Remember, the `Awaited` event has no listeners, and doesn't need to have any in the class being tested. To set up an ephemeral listener, set up the basic MSTest method with the necessary scaffolding.
+
+```
+[TestMethod]
+public async Task Test_JsonPlaceholderAPI()
+{
+    // A reusable completion source to await things
+    var awaiter = new SemaphoreSlim(0, 1); // A blocked semaphore
+
+    // But only "certain" things
+    string armed = "OnHandleCreated";
+
+    // A list we can use to track responses
+    var builder = new List<string>();
+
+    // The handle we need to obtain.
+    System.Windows.Forms.Button? btn = null;
+}
+```
+___
+
+Then, following the first example, add an event handler for the duration of the test.
+
+```
+    using (this.WithOnDispose(
+        onInit: (sender, e) => AwaitedEventArgs.Awaited += localOnAwaited,
+        onDispose: (sender, e) => AwaitedEventArgs.Awaited -= localOnAwaited))
+    {
+        // You can do this anywhere. In this case, someone *is* listening.
+        this.OnAwaited(); 
+    }
+```
+
+Keep in mind that `Awaited` is a static event, and there's some chance that tests are running parallel. This means that the local handler will need to be selective. The "armed" filter provides a simple way to take action on an event in this method while ignoring it in a concurrent test, and it's already initialised to `"OnHandleCreated"`.
+
+Now look at the `awaiter` semaphore, which is blocked in creation. If we were to `await awaiter.WaitAsync()` then it would sit forever. That's where the handler steps in, releasing the awaiter so that the test can advance to the next asynchronous phase.
+
+```
+    void localOnAwaited(object? sender, AwaitedEventArgs e)
+    {
+        switch (e.Caller)
+        {
+            case "OnHandleCreated" when armed == "OnHandleCreated":
+                btn = sender as System.Windows.Forms.Button;
+                builder.Add($"OnHandleCreated Button={btn?.Text}");
+                awaiter.SafeRelease();
+                break;
+            case "OnTextChanged" when armed == "OnTextChanged":
+                actual = e["Text"] as string ?? string.Empty;
+                builder.Add(actual);
+                awaiter.SafeRelease();
+                break;
+        }
+    }
+```
+
+---
+#### Running the `JsonApiViewer` Form in MSTest
+
+This part requires an STA thread. How you obtain one doesn't matter; for this working example the thread comes from:
 
 
+```
+    // <PackageReference Include="IVSoftware.WinOS.MSTest.Extensions.STA" Version="1.0.0-alpha" />
+    // Make a disposable STA thread to run the form for the duration of this method.
+    using var sta = this.CreateSTAThread<JsonApiViewer>(isVisible: true);
+```
 
+To post work to this thread, call its `RunAsync(func)` method with any `Func<Task>`. In this test, the entire sequence will run inside a single invocation:
 
+```
+    // The local test
+    await sta.RunAsync(async () =>
+    {
+        // Wait for OnHandleCreated
+        await awaiter.WaitAsync();
 
+        // YOU ARE HERE - BUT WHY ?
+    }
+```
 
+At first glance, it seems odd that execution has already passed a semaphore we know began in a blocked state. The explanation lies in what has already occurred:
 
+1. Calling `CreateSTAThread<JsonApiViewer>()` had the dual effect of spawning the thread _and_ showing the form.
+2. Showing the form raised `HandleCreated`, so the first branch of `localOnAwaited` has already fired, releasing the semaphore.
+3. In that same branch, the `sender` was captured as the button instance and is now available for use.
 
-
-
+___

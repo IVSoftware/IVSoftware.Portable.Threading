@@ -69,7 +69,7 @@ namespace OnAwaited.MSTest
             }
 
             // <PackageReference Include="IVSoftware.WinOS.MSTest.Extensions.STA" Version="1.0.0-alpha" />
-            // Make a disposable STA thread to run the form
+            // Make a disposable STA thread to run the form for the duration of this method.
             using var sta = this.CreateSTAThread<JsonApiViewer>(isVisible: true);
 
             await sta.RunAsync(async () =>
