@@ -1,16 +1,31 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <LangVersion>latest</LangVersion>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
+	<PropertyGroup>
+		<!-- Multi-targeting: WinForms and MAUI -->
+		<TargetFrameworks>net8.0-windows</TargetFrameworks>
+		<LangVersion>latest</LangVersion>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
 
-  <ItemGroup>
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
-    <PackageReference Include="MSTest" Version="3.6.4" />
-  </ItemGroup>
+		<!-- Enable WinForms -->
+		<UseWindowsForms>true</UseWindowsForms>
+		<EnableWindowsTargeting>true</EnableWindowsTargeting>
+
+		<!-- Enable MAUI -->
+		<UseMaui>true</UseMaui>
+		<SingleProject>true</SingleProject>
+
+		<!-- Enable WPF -->
+		<UseWPF>true</UseWPF>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="IVSoftware.Portable.Disposable" Version="2.0.0" />
+		<PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+		<PackageReference Include="MSTest" Version="3.6.4" />	  
+		<!-- Allow prerelease for now (this is for MS Test only anyway)-->
+		<PackageReference Include="IVSoftware.WinOS.MSTest.Extensions.STA" Version="1.0.0-*" />
+	</ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\IVSoftware.Portable.Threading\IVSoftware.Portable.Threading.csproj" />

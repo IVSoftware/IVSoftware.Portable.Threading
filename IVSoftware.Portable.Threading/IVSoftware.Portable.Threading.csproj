@@ -1,34 +1,53 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<Title>IVSoftware.Portable.Threading</Title>
-		<Description>Design for Testability (DFT) solution featuring an awaitable hook for non-awaitable flows.</Description>
-		<PackageTags>portable;net;android;ios;mstest;unittest;design-for-testability;dft</PackageTags>
+		<Description>
+			Minimalist Design for Testability (DFT) toolkit providing an awaitable
+			signal for non-awaitable flows, enabling deterministic testing of async
+			void handlers, UI events, and multi-phase workflows without modifying
+			production code.
+		</Description>
+
+		<PackageTags>
+			dft;design-for-test;awaitable;awaited;mstest;unit-testing;netstandard;portable;ui-testing;async-void
+		</PackageTags>
+
 		<RepositoryUrl>https://github.com/IVSoftware/IVSoftware.Portable.Threading.git</RepositoryUrl>
 		<PackageProjectUrl>https://www.nuget.org/packages/IVSoftware.Portable.Threading</PackageProjectUrl>
 		<RootNamespace>IVSoftware.Portable.Threading</RootNamespace>
 		<TargetFramework>netstandard2.0</TargetFramework>
+
 		<GeneratePackageOnBuild>True</GeneratePackageOnBuild>
 		<Authors>IVSoftware, Thomas C. Gregor</Authors>
 		<Owner>IVSoftware LLC</Owner>
-		<Copyright>Copyright © 2023-2025 IVSoftware LLC</Copyright>
+		<Copyright>
+			Copyright (c) 2023-2025 IVSoftware LLC
+		</Copyright>
+
 		<FileVersion>$(AssemblyVersion)</FileVersion>
 		<Version>$(AssemblyVersion)</Version>
 		<PackageReadmeFile>README.md</PackageReadmeFile>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
 		<PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
+
 		<SignAssembly>True</SignAssembly>
 		<AssemblyOriginatorKeyFile>ivs-240909.pfx</AssemblyOriginatorKeyFile>
 		<DebugType>embedded</DebugType>
-		<BaseVersion>1.3.0</BaseVersion>
-		<VersionPrefix>$(BaseVersion)</VersionPrefix>
+
+		<BaseVersion>2.0.0</BaseVersion>
+		<VersionPrefix>$(BaseVersion)-beta</VersionPrefix>
+
 		<PackageReleaseNotes>
-			- OnAwaited can now be called without args.
-			- AwaitedEventArgs can now use Collection Initializer syntax.
-			- Dictionary support of AwaitedEventArgs is independent.
-			- This facilitates using the Args property as a shortcut without disabling the dictionary.
-			- The [CallerMemberName] is now VALIDATED to detect calls intended to be args: someString.
+			- Updated OnAwaited to support calling without explicit args.
+			- AwaitedEventArgs now fully supports collection initializers.
+			- Dictionary payload and Args object now operate independently.
+			- Added support for multi-phase workflows and richer context passing.
+			- Improved CallerMemberName validation and safety checks.
+			- Fixed collection-initializer exception when Args is not a dictionary.
 		</PackageReleaseNotes>
+
 	</PropertyGroup>
+
 	<ItemGroup>
 		<None Include="..\README.md">
 			<Pack>True</Pack>

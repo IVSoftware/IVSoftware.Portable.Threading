@@ -1,6 +1,10 @@
 ﻿using IVSoftware.Portable.Threading;
-using static IVSoftware.Portable.Threading.Extensions;
 using System.Diagnostics;
+using IVSoftware.Portable.Disposable;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Newtonsoft.Json;
+using IVSoftware.WinOS.MSTest.Extensions;
+using MSTest.Async.Demo;
 
 namespace OnAwaited.MSTest
 {
@@ -13,69 +17,90 @@ namespace OnAwaited.MSTest
             HELLO_WORLD = "Hello World!",
             TYPE_NAME_ERROR = "UNEXPECTED: Type Name Error.";
 
+
         /// <summary>
-        /// This test is a demonstration of "awaiting the unawaitable" async void.
+        /// Thest the combo of 'explicit args:' + 'collection initializer'.
         /// </summary>
+        /// <remarks>
+        /// Threading the needle, where Args is initialized as a string (thus
+        /// making the AwaitedEventArgs.Args property 'not a dictionary` but 
+        /// still using the initializer list to append the underlying _dict 
+        /// because AwaitedEventArgs *itself* is 'still a dictionary` always.
+        /// </remarks>
         [TestMethod]
-        public async Task AwaitAsyncVoid()
+        public void HybridCollectionInitializer()
         {
+            object @this = new();
+            try
+            {
+                #region L o c a l F x 
+                void localOnAwaited(object? sender, AwaitedEventArgs e)
+                {
+                    Assert.AreEqual(e.Args, "Hello World!");
+                    Assert.IsTrue(e.ContainsKey("Key"));
+                    Assert.AreEqual(e["Key"], "Value");
+                }
+                #endregion L o c a l F x
+                using (this.WithOnDispose(
+                    onInit: (sender, e) =>
+                        {
+                            AwaitedEventArgs.Awaited += localOnAwaited;
+                        },
+                    onDispose: (sender, e) =>
+                        {
+                            AwaitedEventArgs.Awaited -= localOnAwaited;
+                        }))
+                {
+                    @this.OnAwaited(new AwaitedEventArgs(args: "Hello World!")
+                    {
+                        { "Key", "Value" }
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                Assert.Fail(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Demonstrates "awaiting the unawaitable" — validates awaited events raised from an <c>async void</c> handler.
+        /// </summary>
+        /// <remarks>
+        /// The mock button runs in <see cref="TestMode.Asynchronous"/>.  
+        /// <see cref="MockClassUnderTest.ExecClick(object, EventArgs)"/> starts a background task,
+        /// awaits a short delay, then raises <see cref="AwaitedEventArgs"/> on a thread-pool thread.  
+        /// Confirms that async timing does not alter Args or Caller classification and produces
+        /// the same event signature as the synchronous baseline.
+        /// </remarks>
+        [TestMethod]
+        public async Task Test_AwaitAsyncVoid()
+        {
+            string actual, expected;
+
             var mockUT = new MockClassUnderTest { TestMode = TestMode.Asynchronous };
             var callbacks = new Dictionary<string, int>();
             var stopwatch = new Stopwatch();
             AwaitedEventArgs? currentEvent = null!;
-            SemaphoreSlim awaiter = new SemaphoreSlim(1, 1);
-            try
-            {
-                Awaited += localOnAwaited;
+            SemaphoreSlim awaiter = new SemaphoreSlim(0, 1);
 
-                foreach (var testResponse in Enum.GetValues<TestResponse>())
+            #region L o c a l F x 
+            using var local = this.WithOnDispose(
+                onInit: (sender, e) =>
                 {
-                    mockUT.TestResponse = testResponse; // Setup.
-
+                    IVSoftware.Portable.Threading.Extensions.Awaited += localOnAwaited;
+                },
+                onDispose: (sender, e) =>
+                {
+                    IVSoftware.Portable.Threading.Extensions.Awaited -= localOnAwaited;
                     awaiter.Wait(0);
-                    stopwatch.Restart();
-                    mockUT.ButtonClickMe.PerformClick();
-                    await awaiter.WaitAsync();
-                    stopwatch.Stop();
-                    Assert.IsNotNull(currentEvent);
-                    switch (testResponse)
-                    {
-                        case TestResponse.Default:
-                            Assert.AreEqual(1, callbacks[EXEC], "Expecting Caller to match ");
-                            Assert.IsTrue(currentEvent?.Args is Dictionary<string, object>, "Expecting Args redirect to dict.");
-                            break;
-                        case TestResponse.HelloWorldError:
-                            Assert.AreEqual(1, callbacks[ERROR], "Expecting this call produces Caller error.");
-                            Assert.AreEqual(currentEvent?.Args, HELLO_WORLD);
-                            break;
-                        case TestResponse.HelloWorldArgs:
-                            Assert.AreEqual(2, callbacks[EXEC], "Expecting Caller to match ");
-                            Assert.AreEqual(currentEvent?.Args, HELLO_WORLD);
-                            break;
-                        case TestResponse.CollectionInitializer:
-                            Assert.AreEqual(3, callbacks[EXEC], "Expecting Caller to match ");
-                            Assert.AreEqual(3, currentEvent.Count, "Expecting dictionary contains 3 KVPs");
-                            Assert.AreEqual(HELLO_WORLD, currentEvent["stringKey"], "Expecting dictionary value to match.");
-                            Assert.AreEqual(42, currentEvent["intKey"], "Expecting dictionary value to match.");
-                            Assert.AreEqual(TestResponse.CollectionInitializer, currentEvent["enumKey"], "Expecting dictionary value to match.");
-                            break;
-                        default: throw new NotImplementedException();
-                    }
-                }
-                Assert.IsFalse(callbacks.ContainsKey(TYPE_NAME_ERROR), "Type name errors are categorically unexpected.");
-            }
-            finally
-            {
-                Awaited -= localOnAwaited;
-                awaiter.Wait(0);
-                awaiter.Release();
-            }
-
+                    awaiter.Release();
+                });
             void localOnAwaited(object? sender, AwaitedEventArgs e)
             {
                 currentEvent = e;
-                callbacks.Increment(e.Args.GetType().FullName ?? TYPE_NAME_ERROR);
-                switch(e.Caller)
+                callbacks.Increment(e.Args.GetType().ToFormattedTypeName(FormattedTypeNameOptionFlag.UseShortTypeName) ?? TYPE_NAME_ERROR);
+                switch (e.Caller)
                 {
                     case string s when s.StartsWith(ERROR):
                         callbacks.Increment(ERROR);
@@ -86,63 +111,71 @@ namespace OnAwaited.MSTest
                 }
                 awaiter.Release();
             }
+            #endregion L o c a l F x
+
+            foreach (var testResponse in Enum.GetValues<TestResponse>())
+            {
+                mockUT.TestResponse = testResponse; // Setup.
+                mockUT.ButtonClickMe.PerformClick();
+                await awaiter.WaitAsync();
+                stopwatch.Stop();
+                Assert.IsNotNull(currentEvent);
+            }
+
+            actual = JsonConvert.SerializeObject(callbacks, Formatting.Indented);
+            actual.ToClipboardExpected();
+            { }
+
+            expected = @" 
+{
+  ""Dictionary<String, Object>"": 2,
+  ""ExecClick"": 3,
+  ""String"": 2,
+  ""Hello World!"": 1
+}"
+            ;
+
+            Assert.AreEqual(
+                expected.NormalizeResult(),
+                actual.NormalizeResult(),
+                "Expecting json serialization to match."
+            );
         }
 
+
         /// <summary>
-        /// This test is a demonstration of counting synchronous events.
+        /// Verifies awaited-event behavior when raised synchronously on the calling thread.
         /// </summary>
+        /// <remarks>
+        /// The mock button runs in <see cref="TestMode.Synchronous"/>.  
+        /// <see cref="MockClassUnderTest.ExecClick(object, EventArgs)"/> invokes 
+        /// <c>localExecClick()</c> directly, raising <see cref="AwaitedEventArgs"/> inline.  
+        /// Establishes the deterministic reference signature used by the async counterpart.
+        /// </remarks>
         [TestMethod]
-        public void SynchronousEventCounting()
+        public void Test_SynchronousEventCounting()
         {
+            string actual, expected;
+
             var mockUT = new MockClassUnderTest { TestMode = TestMode.Synchronous };
             var callbacks = new Dictionary<string, int>();
             var stopwatch = new Stopwatch();
             AwaitedEventArgs? currentEvent = null!;
-            try
-            {
-                Awaited += localOnAwaited;
 
-                foreach (var testResponse in Enum.GetValues<TestResponse>())
-                {
-                    mockUT.TestResponse = testResponse; // Setup.
-                    mockUT.ButtonClickMe.PerformClick();
-                    stopwatch.Stop();
-                    Assert.IsNotNull(currentEvent);
-                    switch (testResponse)
+            #region L o c a l F x 
+            using var local = this.WithOnDispose(
+                onInit: (sender, e) =>
                     {
-                        case TestResponse.Default:
-                            Assert.AreEqual(1, callbacks[EXEC], "Expecting Caller to match ");
-                            Assert.IsTrue(currentEvent?.Args is Dictionary<string, object>, "Expecting Args redirect to dict.");
-                            break;
-                        case TestResponse.HelloWorldError:
-                            Assert.AreEqual(1, callbacks[ERROR], "Expecting this call produces Caller error.");
-                            Assert.AreEqual(currentEvent?.Args, HELLO_WORLD);
-                            break;
-                        case TestResponse.HelloWorldArgs:
-                            Assert.AreEqual(2, callbacks[EXEC], "Expecting Caller to match ");
-                            Assert.AreEqual(currentEvent?.Args, HELLO_WORLD);
-                            break;
-                        case TestResponse.CollectionInitializer:
-                            Assert.AreEqual(3, callbacks[EXEC], "Expecting Caller to match ");
-                            Assert.AreEqual(3, currentEvent.Count, "Expecting dictionary contains 3 KVPs");
-                            Assert.AreEqual(HELLO_WORLD, currentEvent["stringKey"], "Expecting dictionary value to match.");
-                            Assert.AreEqual(42, currentEvent["intKey"], "Expecting dictionary value to match.");
-                            Assert.AreEqual(TestResponse.CollectionInitializer, currentEvent["enumKey"], "Expecting dictionary value to match.");
-                            break;
-                        default: throw new NotImplementedException();
-                    }
-                }
-                Assert.IsFalse(callbacks.ContainsKey(TYPE_NAME_ERROR), "Type name errors are categorically unexpected.");
-            }
-            finally
-            {
-                Awaited -= localOnAwaited;
-            }
-
+                        IVSoftware.Portable.Threading.Extensions.Awaited += localOnAwaited;
+                    },
+                onDispose: (sender, e) =>
+                    {
+                        IVSoftware.Portable.Threading.Extensions.Awaited -= localOnAwaited;
+                    });
             void localOnAwaited(object? sender, AwaitedEventArgs e)
             {
                 currentEvent = e;
-                callbacks.Increment(e.Args.GetType().FullName ?? TYPE_NAME_ERROR);
+                callbacks.Increment(e.Args.GetType().ToFormattedTypeName(FormattedTypeNameOptionFlag.UseShortTypeName) ?? TYPE_NAME_ERROR);
                 switch (e.Caller)
                 {
                     case string s when s.StartsWith(ERROR):
@@ -153,7 +186,36 @@ namespace OnAwaited.MSTest
                         break;
                 }
             }
+            #endregion L o c a l F x
+
+
+            foreach (var testResponse in Enum.GetValues<TestResponse>())
+            {
+                mockUT.TestResponse = testResponse; // Setup.
+                mockUT.ButtonClickMe.PerformClick();
+                stopwatch.Stop();
+                Assert.IsNotNull(currentEvent);
+            }
+
+            actual = JsonConvert.SerializeObject(callbacks, Formatting.Indented);
+            actual.ToClipboardExpected();
+            { }
+            expected = @" 
+{
+  ""Dictionary<String, Object>"": 2,
+  ""ExecClick"": 3,
+  ""String"": 2,
+  ""Hello World!"": 1
+}"
+            ;
+
+            Assert.AreEqual(
+                expected.NormalizeResult(),
+                actual.NormalizeResult(),
+                "Expecting json serialization to match."
+            );
         }
+
         enum TestResponse
         {
             Default,
@@ -202,9 +264,14 @@ namespace OnAwaited.MSTest
                             this.OnAwaited();
                             break;
                         case TestResponse.HelloWorldError:
+                            // [Careful] 
+                            // These are string consts. To wir:
+                            // HELLO_WORLD = "Hello World!",
+                            // As of 251115 this should be routed as an Arg not a Caller
                             this.OnAwaited(new AwaitedEventArgs(HELLO_WORLD));
                             break;
                         case TestResponse.HelloWorldArgs:
+                            // [Careful] ibid.
                             this.OnAwaited(new AwaitedEventArgs(args: HELLO_WORLD));
                             break;
                         case TestResponse.CollectionInitializer:

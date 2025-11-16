@@ -1,0 +1,80 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<CodeSnippets
+    xmlns="http://schemas.microsoft.com/VisualStudio/2005/CodeSnippet">
+
+
+
+	<CodeSnippet Format="1.0.0">
+		<Header>
+			<Title>[Canonical] With On Dispose for Throw Declarative</Title>
+			<Author>IVSoftware,LLC</Author>
+			<Shortcut>wodtd</Shortcut>
+		</Header>
+		<Snippet>
+			<Declarations>
+				<Literal>
+					<ID>name</ID>
+					<Default>this</Default>
+				</Literal>
+				<Literal>
+					<ID>event</ID>
+					<Default>Event</Default>
+				</Literal>
+			</Declarations>
+			<Code Language="CSharp">
+				<![CDATA[
+#region L o c a l F x
+var builderThrow = new List<string>();
+void localOnBeginThrowOrAdvise(object? sender, Throw e)
+{
+    builderThrow.Add(e.Message);
+    e.Handled = true;
+}
+#endregion L o c a l F x
+using var local = this.WithOnDispose(
+    onInit: (sender, e) =>
+    {
+        Throw.BeginThrowOrAdvise += localOnBeginThrowOrAdvise;
+    },
+    onDispose: (sender, e) =>
+    {
+        Throw.BeginThrowOrAdvise -= localOnBeginThrowOrAdvise;
+    });]]>
+			</Code>
+		</Snippet>
+	</CodeSnippet>
+
+	<CodeSnippet Format="1.0.0">
+		<Header>
+			<Title>[Canonical] With On Dispose for Awaited</Title>
+			<Author>IVSoftware,LLC</Author>
+			<Shortcut>woda</Shortcut>
+		</Header>
+		<Snippet>
+			<Declarations>
+				<Literal>
+					<ID>name</ID>
+					<Default>this</Default>
+				</Literal>
+				<Literal>
+					<ID>event</ID>
+					<Default>Event</Default>
+				</Literal>
+			</Declarations>
+			<Code Language="CSharp">
+				<![CDATA[
+#region L o c a l F x 
+void localOnAwaited(object? sender, AwaitedEventArgs e)
+{
+}
+#endregion L o c a l F x
+using (this.WithOnDispose(
+    onInit: (sender, e) => AwaitedEventArgs.Awaited += localOnAwaited,
+    onDispose: (sender, e) => AwaitedEventArgs.Awaited -= localOnAwaited))
+{
+    // Scope
+}]]>
+			</Code>
+		</Snippet>
+	</CodeSnippet>
+</CodeSnippets>
