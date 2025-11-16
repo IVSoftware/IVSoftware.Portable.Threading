@@ -1,7 +1,7 @@
 
 ## IVSoftware.Portable.Threading [[GitHub](https://github.com/IVSoftware/IVSoftware.Portable.Threading.git)]
 
-This NuGet package offers a minimalist Design for Testability (DFT) solution. Here’s how it works: sprinkle this expression - like a pinch of dust - anywhere you anticipate needing to test for or monitor state.
+This NuGet package offers a minimalist Design for Testability (DFT) solution. Using it is straightforward: simply sprinkle this extension - like a pinch of dust - anywhere you anticipate needing to test for or monitor state.
 
 ```
 this.OnAwaited(); // The no-frills edition: raise a static event from any object.
@@ -10,9 +10,26 @@ this.OnAwaited(); // The no-frills edition: raise a static event from any object
 And what does this do? Simply stated, it raises a static event that (by default) has no subscribers. If that sounds unremarkable, that's fine - we'll get to why it matters. For now, two takeaways:
 
 1. The overhead is next to nothing.  
-2. You already know everything required to use it.
+2. You already know everything required to use incorporate it in your app.
 
 ---
+
+## Table of Contents
+
+- [When and How to Subscribe to the Event](#when-and-how-to-subscribe-to-the-event)
+- [Awaiting the Unawaitable](#awaiting-the-unawaitable)
+- [Design for Test (DFT)](#design-for-test-dft)
+  - [Setting up the Listener in MSTest](#setting-up-the-listener-in-mstest)
+  - [Running the JsonApiViewer Form in MSTest](#running-the-jsonapiviewer-form-in-mstest)
+  - [DFT Final Setup](#dft-final-setup)
+  - [Test Method Final Setup](#test-method-final-setup)
+  - [Test Method Local Handler Advanced](#test-method-local-handler-advanced)
+- [Recap of Basic Features](#recap-of-basic-features)
+  - [Notes on Visibility](#notes-on-visibility)
+- [Advanced Applications](#advanced-applications-beyond-simple-checkpoints)
+  - [Not a One-Way Conversation](#not-a-one-way-conversation)
+  - [Many Effective Concurrency Management Paths](#many-effective-concurrency-management-paths)
+
 
 ### When and How to Subscribe to the Event
 
