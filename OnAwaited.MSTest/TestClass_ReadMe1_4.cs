@@ -2,12 +2,9 @@ using IVSoftware.Portable.Disposable;
 using IVSoftware.Portable.Threading;
 using IVSoftware.WinOS.MSTest.Extensions;
 using IVSoftware.WinOS.MSTest.Extensions.STA;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Newtonsoft.Json;
 using OnAwaited.MSTest.WinTest;
 using System.Diagnostics;
 using System.Net.Http;
-using System.Runtime.CompilerServices;
 
 namespace OnAwaited.MSTest
 {

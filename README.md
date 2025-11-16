@@ -392,5 +392,16 @@ At that point:
 
 Armed with that information, concurrency becomes something explicit and navigable rather than opaque. The mechanism does not enforce a concurrency model; it simply gives you a clear view of what is happening so you can decide how to handle it.
 
+___
 
+## Code Snippets
+
+Use these code snippets to quickly add ephemeral handlers.
+
+[code.snippet](./IVSoftware.Portable.Threading/code.snippet)
+
+> Note: Using these snippets requires the IVSoftware.Portable.Disposable NuGet package. Save a step by installing
+> that package which pulls this one in automatically.
+
+___
 
