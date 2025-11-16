@@ -400,8 +400,7 @@ Use these code snippets to quickly add ephemeral handlers.
 
 [code.snippet](./IVSoftware.Portable.Threading/code.snippet)
 
-> Note: Using these snippets requires the IVSoftware.Portable.Disposable NuGet package. Save a step by installing
-> that package which pulls this one in automatically.
+> Note: Using these snippets requires the IVSoftware.Portable.Disposable NuGet package > 2.0.0.* 
 
 ___
 
