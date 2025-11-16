@@ -61,11 +61,64 @@ ___
 _In short: "Suppose a UI button is going to retrieve something from a server. How does one determine — rather than guess — when the result has actually returned?" That scenario, and many others like it, became the spark._ 
 ___
 
+To demonstrate, let's make a real form with a real API call (not mocked). Now ask, what would it take to drive this UI in test and reliably evaluate the API response.
 
+```
+public partial class JsonApiViewer : Form
+{
+    public JsonApiViewer() => InitializeComponent();
 
+    private void InitializeComponent()
+    {
+        Size = new System.Drawing.Size(500, 300);
+        btnApiQuery = new Button { Text = "API Query", Left = 10, Top = 10, Width = 100 };
+        txtFact = new TextBox { Left = 10, Top = 50, Width = ClientSize.Width-20, Height = 120, Multiline = true };
+        btnApiQuery.Click += btnApiQuery_Click;
+        Controls.Add(btnApiQuery);
+        Controls.Add(txtFact);
+        StartPosition = FormStartPosition.CenterScreen;
+    }
 
+    // https://jsonplaceholder.typicode.com/
+    private async void btnApiQuery_Click(object? sender, EventArgs e)
+    {
+        txtFact.Text = "Loading...";
+        using var http = new HttpClient();
+        var json = await http.GetStringAsync("https://jsonplaceholder.typicode.com/todos/1");
+        // Parse and show something interesting
+        var doc = JsonDocument.Parse(json);
+        txtFact.Text = doc.RootElement.GetProperty("title").GetString();
+    }
+    private Button btnApiQuery;
+    private TextBox txtFact;
+}
+```
+At first glance this looks straightforward: a simple async handler fetching JSON. But for a test trying to drive this form, there is no built-in signal that the awaited work has actually completed. The UI thread stays alive, the async state machine runs in the background, and the test is left to guess when the result is ready. This is exactly the visibility gap the `Awaited` signal was designed to close.
 
 ___
+
+### Design for Test (DFT)
+
+Now let's retrofit the same class for testability, explaining as we go.
+
+1. "Let me know when the UI is available, and at the same time give me the Button handle."
+
+For this two-in-one effect, the timing can trigger on the form's `HandleCreated` event. And if the button handle is used to call `OnAwaited()` then it will show up as the sender. This will allow us to call the button's native`PerformClick()` method.
+
+```
+public JsonApiViewer()
+{
+    InitializeComponent();
+                
+    // DFT: Provide button handle when ready in order to PerformClick on it.
+    HandleCreated +=(sender, e)
+        => btnApiQuery.OnAwaited(caller: nameof(OnHandleCreated));
+}
+```
+
+####
+
+
 
 
 

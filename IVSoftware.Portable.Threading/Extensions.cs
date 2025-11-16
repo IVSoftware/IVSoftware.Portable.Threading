@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Runtime.CompilerServices;
+using System.Threading;
 
 namespace IVSoftware.Portable.Threading
 {
@@ -28,6 +29,21 @@ namespace IVSoftware.Portable.Threading
         {
             add => AwaitedEventArgs.Awaited += value;
             remove => AwaitedEventArgs.Awaited -= value;
+        }
+
+        /// <summary>
+        /// Reports whether the semaphore was already signaled, then releases it.
+        /// </summary>
+        /// <remarks>
+        /// Wait(0) performs a non-blocking probe. A false result means the semaphore
+        /// was signaled. The method returns that information and always calls Release
+        /// to restore the semaphore to a known state.
+        /// </remarks>
+        public static bool SafeRelease(this SemaphoreSlim @this)
+        {
+            bool wasSignaled = !@this.Wait(0);
+            @this.Release();
+            return wasSignaled;
         }
     }
 }

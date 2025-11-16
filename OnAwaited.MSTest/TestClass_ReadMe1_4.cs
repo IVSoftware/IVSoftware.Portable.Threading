@@ -39,78 +39,7 @@ namespace OnAwaited.MSTest
         }
 
         [TestMethod]
-        public async Task Test_UnawaitableScenario()
-        {
-            string actual, expected;
-
-            var rando = new Random(10);
-            var awaiter = new SemaphoreSlim(0, 1);
-            var builder = new List<string>();
-            var stopwatch = Stopwatch.StartNew();
-            var tcs = new TaskCompletionSource();
-            var eventCount = 0;
-
-            #region L o c a l F x 
-            using var local = this.WithOnDispose(
-                onInit: (sender, e) => AwaitedEventArgs.Awaited += localOnAwaited,
-                onDispose: (sender, e) => AwaitedEventArgs.Awaited -= localOnAwaited);
-            void localOnAwaited(object? sender, AwaitedEventArgs e)
-            {
-                eventCount++;
-                Debug.WriteLine($"R{stopwatch.Elapsed}");
-                builder.Add($@"{((Control?)sender).Name} Sent {e[nameof(Stopwatch)]} Returned {stopwatch.Elapsed:mm\:ss\:ff}");
-                if (eventCount == 5)
-                {
-                    tcs.SetResult();
-                }
-            }
-            #endregion L o c a l F x
-
-            // <PackageReference Include="IVSoftware.WinOS.MSTest.Extensions.STA" Version="1.0.0-alpha" />
-            using var sta = new STARunner(isVisible: false);
-
-            await sta.RunAsync(async () =>
-            {
-                var btnQueryCloud = new System.Windows.Forms.Button() { Name = "QueryCloud" };
-
-                btnQueryCloud.Click += async (sender, e) =>
-                {
-                    // Simlulate an indeterminate cloud retrieval.
-                    await Task.Delay(TimeSpan.FromSeconds(5));
-                    //await Task.Delay(TimeSpan.FromSeconds(5 + 0.5 + (2 * rando.NextDouble())));
-                    sender.OnAwaited(new AwaitedEventArgs
-                    {
-                        { nameof(Stopwatch), $@"{stopwatch.Elapsed:mm\:ss\.ff}" }
-                    });
-                };
-                for (int i = 0; i < 5; i++)
-                {
-                    // Space these out a little but run concurrently.
-                    await Task.Delay(TimeSpan.FromSeconds(1));
-
-                    Debug.WriteLine(stopwatch.Elapsed);
-                    btnQueryCloud.PerformClick();
-                }
-            });
-            await tcs.Task;
-
-
-            actual = string.Join(Environment.NewLine, builder);
-
-
-            actual.ToClipboardExpected();
-            { }
-            expected = @" 
-QueryCloud Sent 00:06.09 Returned 00:06:09
-QueryCloud Sent 00:07.10 Returned 00:07:11
-QueryCloud Sent 00:08.11 Returned 00:08:12
-QueryCloud Sent 00:09.12 Returned 00:09:13
-QueryCloud Sent 00:10.13 Returned 00:10:14"
-            ;
-        }
-
-        [TestMethod]
-        public async Task Test_CatFact()
+        public async Task Test_JsonPlaceholderAPI()
         {
             string actual = null!, expected = null!, armed = "OnHandleCreated";
             var builder = new List<string>();
@@ -129,19 +58,19 @@ QueryCloud Sent 00:10.13 Returned 00:10:14"
                     case "OnHandleCreated" when armed == "OnHandleCreated":
                         btn = sender as System.Windows.Forms.Button;
                         builder.Add($"OnHandleCreated Button={btn?.Text}");
-                        awaiter.Release();
+                        awaiter.SafeRelease();
                         break;
                     case "OnTextChanged" when armed == "OnTextChanged":
                         actual = e["Text"] as string ?? string.Empty;
                         builder.Add(actual);
-                        awaiter.Release();
+                        awaiter.SafeRelease();
                         break;
                 }
             }
 
             // <PackageReference Include="IVSoftware.WinOS.MSTest.Extensions.STA" Version="1.0.0-alpha" />
             // Make a disposable STA thread to run the form
-            using var sta = this.CreateSTAThread<CatFactForm>(isVisible: true);
+            using var sta = this.CreateSTAThread<JsonApiViewer>(isVisible: true);
 
             await sta.RunAsync(async () =>
             {
@@ -157,6 +86,8 @@ QueryCloud Sent 00:10.13 Returned 00:10:14"
                 {
                     // Wait for fact or error.
                     await awaiter.WaitAsync();
+                    // Dwell long enough to view result
+                    await Task.Delay(TimeSpan.FromSeconds(2.5));
                 }
             });
 
@@ -167,14 +98,14 @@ QueryCloud Sent 00:10.13 Returned 00:10:14"
             actual.ToClipboardAssert("Expecting builder content to match.");
             { }
             expected = @" 
-OnHandleCreated Button=Cat Fact
+OnHandleCreated Button=API Query
 Loading...
-A cats field of vision is about 185 degrees.";
+delectus aut autem";
 
             Assert.AreEqual(
                 expected.NormalizeResult(),
                 actual.NormalizeResult(),
-                "Expecting builder contains cat fact 0."
+                "Expecting fake JSON retrieved from real API."
             );
         }
     }
@@ -182,43 +113,75 @@ A cats field of vision is about 185 degrees.";
     {
         using System.Text.Json;
         using Button = System.Windows.Forms.Button;
-        public partial class CatFactForm : Form
+        public partial class JsonApiViewer : Form
         {
-            public CatFactForm()
+            public JsonApiViewer()
             {
                 InitializeComponent();
                 
                 // DFT: Provide button handle when ready in order to PerformClick on it.
                 HandleCreated +=(sender, e)
-                    => btnCatFact.OnAwaited(caller: nameof(OnHandleCreated));
+                    => btnApiQuery.OnAwaited(caller: nameof(OnHandleCreated));
 
-                // DFT: Notify when text changes on button by adding new text to event dictinary.
+                // DFT: Notify when text changes on button by adding new text to event dictionary.
                 txtFact.TextChanged += (sender, e) 
                     => txtFact.OnAwaited(new AwaitedEventArgs(caller: nameof(OnTextChanged)){ { nameof(Text), txtFact.Text} });
             }
 
             private void InitializeComponent()
             {
-                btnCatFact = new Button { Text = "Cat Fact", Left = 10, Top = 10, Width = 100 };
-                txtFact = new TextBox { Left = 10, Top = 50, Width = 360, Height = 120, Multiline = true };
-                btnCatFact.Click += btnCatFact_Click;
-
-                Controls.Add(btnCatFact);
+                Size = new System.Drawing.Size(500, 300);
+                btnApiQuery = new Button { Text = "API Query", Left = 10, Top = 10, Width = 100 };
+                txtFact = new TextBox { Left = 10, Top = 50, Width = ClientSize.Width-20, Height = 120, Multiline = true };
+                btnApiQuery.Click += btnApiQuery_Click;
+                Controls.Add(btnApiQuery);
                 Controls.Add(txtFact);
-
                 StartPosition = FormStartPosition.CenterScreen;
             }
 
-            private async void btnCatFact_Click(object? sender, EventArgs e)
+            // https://jsonplaceholder.typicode.com/
+            private async void btnApiQuery_Click(object? sender, EventArgs e)
             {
                 txtFact.Text = "Loading...";
                 using var http = new HttpClient();
-                var json = await http.GetStringAsync("https://meowfacts.herokuapp.com/?id=0");                    
-                var fact = JsonDocument.Parse(json).RootElement.GetProperty("data")[0].GetString();
-                txtFact.Text = fact ?? "(no fact returned)";
+                var json = await http.GetStringAsync("https://jsonplaceholder.typicode.com/todos/1");
+                // Parse and show something interesting
+                var doc = JsonDocument.Parse(json);
+                txtFact.Text = doc.RootElement.GetProperty("title").GetString();
             }
-            private Button btnCatFact;
+            private Button btnApiQuery;
             private TextBox txtFact;
         }
+#if false && SAVE
+
+        public partial class JsonApiViewer : Form
+        {
+            public JsonApiViewer() => InitializeComponent();
+
+            private void InitializeComponent()
+            {
+                Size = new System.Drawing.Size(500, 300);
+                btnApiQuery = new Button { Text = "API Query", Left = 10, Top = 10, Width = 100 };
+                txtFact = new TextBox { Left = 10, Top = 50, Width = ClientSize.Width-20, Height = 120, Multiline = true };
+                btnApiQuery.Click += btnApiQuery_Click;
+                Controls.Add(btnApiQuery);
+                Controls.Add(txtFact);
+                StartPosition = FormStartPosition.CenterScreen;
+            }
+
+            // https://jsonplaceholder.typicode.com/
+            private async void btnApiQuery_Click(object? sender, EventArgs e)
+            {
+                txtFact.Text = "Loading...";
+                using var http = new HttpClient();
+                var json = await http.GetStringAsync("https://jsonplaceholder.typicode.com/todos/1");
+                // Parse and show something interesting
+                var doc = JsonDocument.Parse(json);
+                txtFact.Text = doc.RootElement.GetProperty("title").GetString();
+            }
+            private Button btnApiQuery;
+            private TextBox txtFact;
+        }
+#endif
     }
 }
