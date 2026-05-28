@@ -21,7 +21,7 @@
 		<Authors>IVSoftware, Thomas C. Gregor</Authors>
 		<Owner>IVSoftware LLC</Owner>
 		<Copyright>
-			Copyright (c) 2023-2025 IVSoftware LLC
+			Copyright (c) 2023-2026 IVSoftware LLC
 		</Copyright>
 
 		<FileVersion>$(AssemblyVersion)</FileVersion>
@@ -31,11 +31,13 @@
 		<PackageRequireLicenseAcceptance>True</PackageRequireLicenseAcceptance>
 
 		<SignAssembly>True</SignAssembly>
-		<AssemblyOriginatorKeyFile>ivs-240909.pfx</AssemblyOriginatorKeyFile>
+		<AssemblyOriginatorKeyFile>D:\PFX\ivs-240909.pfx</AssemblyOriginatorKeyFile>
 		<DebugType>embedded</DebugType>
 
 		<BaseVersion>2.0.0</BaseVersion>
-		<VersionPrefix>$(BaseVersion)-beta</VersionPrefix>
+		<VersionPrefix>$(BaseVersion)</VersionPrefix>
+		<VersionSuffix></VersionSuffix>
+		<PackageIcon>ivs-nuget-logo.8.png</PackageIcon>
 
 		<PackageReleaseNotes>
 			- Updated OnAwaited to support calling without explicit args.
@@ -50,6 +52,13 @@
 
 	<ItemGroup>
 		<None Include="..\README.md">
+			<Pack>True</Pack>
+			<PackagePath>\</PackagePath>
+		</None>
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Include="..\IVSoftware.Portable.Threading\img\ivs-nuget-logo.8.png">
 			<Pack>True</Pack>
 			<PackagePath>\</PackagePath>
 		</None>
